@@ -47,7 +47,7 @@ Três opções fora da distribuição comum (probabilidades de cauda, cada uma a
 
 - **Movimento de design:** instrumentos de diagnóstico automotivo e mesas de engenharia, traduzidos em uma interface web precisa, sem imitar painel de carro literalmente.
 - **Princípios:** leitura rápida do estado; hierarquia técnica consistente; densidade controlada; erros sempre explicados perto do dado e no resumo.
-- **Filosofia de cor:** fundo grafite azulado reduz reflexo; branco frio dá contraste ao formulário; âmbar identifica pendência; vermelho é reservado a bloqueios; verde-água marca geração válida. Azul elétrico é a cor proprietária dos controles ativos.
+- **Filosofia de cor:** preto/grafite e superfícies neutras criam contraste limpo; branco quente mantém leitura; amarelo assina ações ativas; laranja marca atenção; vermelho fica reservado a bloqueios e erros; verde assinala geração válida.
 - **Paradigma de layout:** trilho lateral estreito para projetos e etapas; formulário principal em painéis empilhados com versões expansíveis; coluna de validação/código persistente em telas grandes e aba alternável em telas menores.
 - **Elementos de assinatura:** trilha vertical de etapas com estados; selos compactos de tipo Schema.org e severidade; cabeçalho de código com contagem de entidades.
 - **Interação:** edição inline, salvar automático visível, adicionar/duplicar/reordenar sem perder contexto; cada aviso aponta para o campo correspondente; controles de exportação indicam bloqueios antes do clique.
@@ -55,8 +55,8 @@ Três opções fora da distribuição comum (probabilidades de cauda, cada uma a
 - **Tipografia:** Inter para interface, IBM Plex Mono para IDs, valores técnicos e JSON; títulos 24/18 px, corpo 14 px, labels 12 px, line-height generoso no código.
 - **Essência da marca:** oficina de dados estruturados para equipes de conteúdo automotivo; personalidade: precisa, transparente, prática.
 - **Tom de voz:** títulos diretos, microcopy que revela a consequência técnica. Exemplos: “Dados completos. Grafo consistente.” / “Há campos pendentes; nenhum placeholder será publicado.”
-- **Logotipo:** monograma geométrico `PDP` em três linhas conectadas por nós, lembrando um grafo de versões, acompanhado de wordmark compacto.
-- **Cor de assinatura:** azul elétrico, reservado para foco, ações primárias e ligações do grafo.
+- **Logotipo:** trilha angular de velocidade em traço contínuo, desenhada como um símbolo abstrato original, com gradiente amarelo–laranja–vermelho, sem reproduzir marcas automobilísticas de terceiros.
+- **Cor de assinatura:** amarelo dourado, com laranja e vermelho como cores de progressão visual; estados semânticos de sucesso/erro permanecem distinguíveis.
 
 ## Fluxo de construção
 

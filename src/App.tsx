@@ -23,11 +23,10 @@ function initialState(): { projects: ProjectRecord[]; activeId: string } {
 }
 
 function BrandMark() {
-  return <svg className="brand-mark" viewBox="0 0 42 42" role="img" aria-label="Marca PDP em grafo">
-    <path d="M10 12.5 21 7l11 5.5v16L21 35l-11-6.5v-16Z" fill="none" stroke="currentColor" strokeWidth="1.4" />
-    <path d="m10.8 13 10.1 5.8 10.2-5.7M21 18.8v15.1" fill="none" stroke="currentColor" strokeWidth="1.4" />
-    <circle cx="10.5" cy="12.8" r="2.5" fill="currentColor" /><circle cx="31.5" cy="12.8" r="2.5" fill="currentColor" /><circle cx="21" cy="34" r="2.5" fill="currentColor" />
-    <circle cx="21" cy="19" r="2.7" fill="#101820" stroke="currentColor" strokeWidth="1.5" />
+  return <svg className="brand-mark" viewBox="0 0 42 42" role="img" aria-label="Símbolo PDP de velocidade">
+    <path d="M7 11h25" fill="none" stroke="#f7b512" strokeWidth="4" strokeLinecap="square" />
+    <path d="m32 11-6 8H17" fill="none" stroke="#f47b20" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
+    <path d="m17 19-7 11h25" fill="none" stroke="#ed2d24" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
   </svg>;
 }
 
