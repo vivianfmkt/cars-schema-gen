@@ -30,6 +30,12 @@ function BrandMark() {
   </svg>;
 }
 
+const CREATOR_CREDIT = 'Desenvolvido por Vívian Ferreira - Marketing Estratégico 360';
+
+function CreatorCredit({ className }: { className: string }) {
+  return <a className={className} href="https://www.linkedin.com/in/vivianfmkt" target="_blank" rel="noopener noreferrer">{CREATOR_CREDIT}</a>;
+}
+
 function ProfileFields({ title, profile, onChange, kind }: {
   title: string; profile: OrganizationProfile | BrandProfile;
   onChange(patch: Partial<OrganizationProfile & BrandProfile>): void; kind: 'organization' | 'brand';
@@ -87,8 +93,8 @@ function ProjectsSidebar({ projects, activeId, onSelect, onCreate, onDuplicate, 
     <div className="sidebar-brand"><BrandMark /><div><span className="sidebar-brand__name">PDP / Schema</span><span className="micro-label">WORKSPACE LOCAL</span></div></div>
     <div className="sidebar-section-heading"><span className="eyebrow">PROJETOS</span><span className="project-count">{String(projects.length).padStart(2, '0')}</span></div>
     <button type="button" className="button button--primary sidebar-new" onClick={onCreate}>＋ Novo projeto</button>
-    <div className="project-list" role="list" aria-label="Projetos salvos">
-      {projects.map((project) => <button type="button" role="listitem" className={`project-item${project.id === activeId ? ' project-item--active' : ''}`} key={project.id} onClick={() => onSelect(project.id)}>
+    <div className="project-list" role="group" aria-label="Projetos salvos">
+      {projects.map((project) => <button type="button" className={`project-item${project.id === activeId ? ' project-item--active' : ''}`} key={project.id} onClick={() => onSelect(project.id)}>
         <span className="project-item__dot" /><span className="project-item__name">{project.name}</span><span className="project-item__date">{new Date(project.updatedAt).toLocaleDateString('pt-BR')}</span>
       </button>)}
     </div>
@@ -209,7 +215,7 @@ export default function App() {
       saveState={saveState} storageMessage={storageMessage} />
     <main className="app-main">
       <header className="topbar">
-        <div className="topbar__brand"><BrandMark /><div><h1>Gerador de Schema <span>para PDP de carros</span></h1><span className="eyebrow">DADOS ESTRUTURADOS · JSON-LD</span></div></div>
+        <div className="topbar__brand"><BrandMark /><div><h1>Gerador de Schema <span>para PDP de carros</span></h1><span className="eyebrow">DADOS ESTRUTURADOS · JSON-LD</span><CreatorCredit className="topbar__credit" /></div></div>
         <label className="project-name-field"><span className="micro-label">PROJETO ATUAL</span><input aria-label="Nome do projeto atual" value={activeProject.name} onChange={(event) => renameProject(event.target.value)} /></label>
       </header>
       <div className="app-toolbar"><div className="app-toolbar__breadcrumb"><span>WORKSPACE</span><b>/</b><span className="app-toolbar__active">{activeProject.name || 'Novo projeto'}</span></div>
@@ -229,7 +235,7 @@ export default function App() {
           <OffersEditor data={activeProject.data} onChange={patchActiveData} />
           <BreadcrumbEditor data={activeProject.data} onChange={patchActiveData} />
           <FaqEditor data={activeProject.data} onChange={patchActiveData} />
-          <footer className="form-footer"><BrandMark /><span>Um grafo, relações explícitas, nenhum dado inventado.</span><span className="micro-label">PDP / SCHEMA</span></footer>
+          <footer className="form-footer"><BrandMark /><span>Um grafo, relações explícitas, nenhum dado inventado.</span><CreatorCredit className="form-footer__credit" /><span className="micro-label">PDP / SCHEMA</span></footer>
         </div>
         <SchemaPanel result={result} projectName={activeProject.name} />
       </div>

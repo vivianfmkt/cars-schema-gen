@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createProject } from './ids';
 import { loadProjects, makeHtmlDocument, makeProjectArchive, parseProjectArchive, saveProjects } from './storage';
+import { SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG } from './feature-catalog';
 
 const memory = new Map<string, string>();
 const localStorageStub = {
@@ -51,5 +52,31 @@ describe('validação de backups', () => {
     const project = createProject('Original');
     const collision = { ...project, name: 'Colisão' };
     expect(() => parseProjectArchive(JSON.stringify(makeProjectArchive([project, collision])))).toThrow(/IDs de projeto repetidos/);
+  });
+
+  it('migra backup v1 adicionando propriedades ausentes e preservando as personalizadas', () => {
+    const legacy = createProject('Legado v1');
+    legacy.data.sharedFeatures = [{ id: 'custom-shared', name: 'Acabamento especial', value: 'Pintura fosca' }];
+    legacy.data.versions[0].features = [{ id: 'custom-version', name: 'Som premium', value: '10 alto-falantes' }];
+    const migrated = parseProjectArchive(JSON.stringify(makeProjectArchive([legacy])))[0];
+
+    expect(migrated.data.sharedFeatures).toHaveLength(SHARED_FEATURE_CATALOG.length + 1);
+    expect(migrated.data.versions[0].features).toHaveLength(VERSION_FEATURE_CATALOG.length + 1);
+    expect(migrated.data.sharedFeatures.find((entry) => entry.name === 'Acabamento especial')?.value).toBe('Pintura fosca');
+    expect(migrated.data.versions[0].features.find((entry) => entry.name === 'Som premium')?.value).toBe('10 alto-falantes');
+    expect(migrated.data.versions[0].features.find((entry) => entry.name === 'Entrada USB')?.value).toBe('');
+  });
+
+  it('adiciona os campos do catálogo ao abrir dados legados do armazenamento local', () => {
+    vi.stubGlobal('localStorage', localStorageStub);
+    const legacy = createProject('Legado local');
+    legacy.data.sharedFeatures = [];
+    legacy.data.versions[0].features = [];
+    memory.set('pdp-schema-projects-v1', JSON.stringify([legacy]));
+
+    const loaded = loadProjects()[0];
+    expect(loaded.data.sharedFeatures).toHaveLength(SHARED_FEATURE_CATALOG.length);
+    expect(loaded.data.versions[0].features).toHaveLength(VERSION_FEATURE_CATALOG.length);
+    expect(new Set(loaded.data.versions[0].features.map((entry) => entry.id)).size).toBe(VERSION_FEATURE_CATALOG.length);
   });
 });

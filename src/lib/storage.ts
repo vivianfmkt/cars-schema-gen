@@ -1,4 +1,5 @@
 import type { ProjectRecord } from '../model/types';
+import { ensureFeatureCatalog } from './ids';
 
 const STORAGE_KEY = 'pdp-schema-projects-v1';
 const PROJECT_FILE_VERSION = 1;
@@ -56,10 +57,11 @@ export function loadProjects(): ProjectRecord[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const seen = new Set<string>();
-    return parsed.filter((entry): entry is ProjectRecord => {
+    const projects = parsed.filter((entry): entry is ProjectRecord => {
       if (!isProject(entry) || seen.has(entry.id)) return false;
       seen.add(entry.id); return true;
     });
+    return projects.map((project) => ({ ...project, data: ensureFeatureCatalog(project.data) }));
   } catch { return []; }
 }
 
@@ -93,7 +95,7 @@ export function parseProjectArchive(text: string): ProjectRecord[] {
     if (ids.has(project.id)) throw new Error('O backup contém IDs de projeto repetidos.');
     ids.add(project.id);
   }
-  return projects;
+  return projects.map((project) => ({ ...project, data: ensureFeatureCatalog(project.data) }));
 }
 
 export function downloadText(filename: string, text: string, mime = 'application/json;charset=utf-8'): void {

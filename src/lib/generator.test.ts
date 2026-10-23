@@ -3,6 +3,7 @@ import { createBlankData, createBlankImage, createBlankOffer, createBlankVersion
 import { generateSchema } from './generator';
 import { parseLocalizedNumber } from './ids';
 import { validateGraph } from './validation';
+import { SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG } from './feature-catalog';
 import type { JsonLdDocument } from '../model/types';
 
 function baseData() {
@@ -269,5 +270,76 @@ describe('escopos de mídia por versão', () => {
     const video = result.document['@graph'].find((node) => node['@type'] === 'VideoObject')!;
     expect(video.about).toEqual({ '@id': group['@id'] });
     expect(validateGraph(result.document).filter((entry) => entry.severity === 'error')).toHaveLength(0);
+  });
+});
+
+describe('propriedades pré-carregadas do modelo e das versões', () => {
+  it('mantém os catálogos vazios sem avisos e só inclui os valores informados no Vehicle', () => {
+    const data = baseData();
+    const empty = generateSchema(data);
+    const vehicle = empty.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+    expect(data.sharedFeatures).toHaveLength(SHARED_FEATURE_CATALOG.length);
+    expect(data.versions[0].features).toHaveLength(VERSION_FEATURE_CATALOG.length);
+    expect(vehicle.additionalProperty).toBeUndefined();
+    expect(empty.issues.filter((entry) => entry.code === 'incomplete-property')).toHaveLength(0);
+
+    data.sharedFeatures.find((entry) => entry.name === 'Controle eletrônico de estabilidade')!.value = 'Sim';
+    data.versions[0].features.find((entry) => entry.name === 'Entrada USB')!.value = 'Duas portas USB-C';
+    data.versions[0].features.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Sim';
+    const filled = generateSchema(data);
+    const filledVehicle = filled.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+    const properties = filledVehicle.additionalProperty as { name: string; value: string }[];
+    expect(properties).toEqual(expect.arrayContaining([
+      { '@type': 'PropertyValue', name: 'Controle eletrônico de estabilidade', value: 'Sim' },
+      { '@type': 'PropertyValue', name: 'Entrada USB', value: 'Duas portas USB-C' },
+      { '@type': 'PropertyValue', name: 'Vidros Elétricos', value: 'Sim' },
+    ]));
+    expect(properties).toHaveLength(3);
+  });
+
+  it('relaciona propriedades comuns ao ProductGroup e preserva valores diferentes por versão', () => {
+    const data = baseData();
+    const second = createBlankVersion('Touring');
+    data.versions = [data.versions[0], second];
+    data.sharedFeatures.find((entry) => entry.name === 'Detecção de pedestres')!.value = 'Sim';
+    data.versions[0].features.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Dianteiros e traseiros';
+    data.versions[1].features.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Somente dianteiros';
+
+    const result = generateSchema(data);
+    const group = result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
+    const vehicles = result.document['@graph'].filter((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'));
+    expect(group.additionalProperty).toEqual([
+      { '@type': 'PropertyValue', name: 'Detecção de pedestres', value: 'Sim' },
+    ]);
+    expect((vehicles[0].additionalProperty as { name: string; value: string }[]).find((entry) => entry.name === 'Vidros Elétricos')?.value).toBe('Dianteiros e traseiros');
+    expect((vehicles[1].additionalProperty as { name: string; value: string }[]).find((entry) => entry.name === 'Vidros Elétricos')?.value).toBe('Somente dianteiros');
+    expect(validateGraph(result.document).filter((entry) => entry.severity === 'error')).toHaveLength(0);
+  });
+});
+
+
+describe('deduplicação de propriedades adicionais', () => {
+  it('prioriza potência técnica sobre propriedade livre homônima e mantém só a última personalizada', () => {
+    const data = baseData();
+    const version = data.versions[0];
+    version.powerGasoline = '150';
+    version.features.push(
+      { id: 'custom-power', name: 'Potência Máxima Gasolina', value: '999' },
+      { id: 'custom-equipment-1', name: 'Som premium', value: '8 alto-falantes' },
+      { id: 'custom-equipment-2', name: 'Som premium', value: '10 alto-falantes' },
+    );
+
+    const result = generateSchema(data);
+    const vehicle = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+    const properties = vehicle.additionalProperty as { name: string; value: unknown; unitText?: string }[];
+    const power = properties.filter((property) => property.name === 'Potência Máxima Gasolina');
+    const sound = properties.filter((property) => property.name === 'Som premium');
+
+    expect(result.canExport).toBe(true);
+    expect(power).toHaveLength(1);
+    expect(power[0]).toMatchObject({ value: 150, unitText: 'cv' });
+    expect(sound).toEqual([{ '@type': 'PropertyValue', name: 'Som premium', value: '10 alto-falantes' }]);
+    expect(result.issues.some((entry) => entry.code === 'typed-property-override' && entry.severity === 'warning')).toBe(true);
+    expect(result.issues.some((entry) => entry.code === 'duplicate-feature-name' && entry.severity === 'warning')).toBe(true);
   });
 });

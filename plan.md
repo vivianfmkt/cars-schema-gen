@@ -61,3 +61,20 @@ Três opções fora da distribuição comum (probabilidades de cauda, cada uma a
 ## Fluxo de construção
 
 Após a aprovação deste plano, criarei o `TODO.md` com critérios completos; habilitarei diagnósticos TypeScript e instalarei dependências Node com o gerenciador fixado; criarei o manifesto da rota; implementarei modelo, motor e testes unitários antes de ligar a interface; executarei build, testes automatizados e diagnósticos; corrigirei falhas; verificarei a aplicação e seu Preview; então registrarei um checkpoint. Publicação externa não será acionada sem pedido explícito.
+
+
+## Atualização solicitada — autoria e catálogo completo de propriedades
+
+Em 22/10/2026, a solicitação amplia a versão publicada: o rodapé e o cabeçalho identificam a autoria como **Desenvolvido por Vívian Ferreira - Marketing Estratégico 360**, com link para `https://www.linkedin.com/in/vivianfmkt`. O catálogo será baseado na leitura integral do TXT (4.365 linhas; JSON válido; 63 entidades), mas não copiará os valores reais/exemplares do Tracker para projetos novos.
+
+A extração do `additionalProperty` de `ProductGroup` e das cinco entidades `Vehicle` identifica quatro propriedades compartilhadas no modelo e 51 propriedades distintas de versão. Oito propriedades veiculares já são atendidas por controles tipados da v1 (`Motorização`, potências máximas gasolina/etanol, torques máximos gasolina/etanol, `Transmissão`, `Tração` e `Airbags`); não serão duplicadas no novo catálogo. Serão pré-carregadas as outras **43 propriedades de versão** e as quatro comuns:
+
+- **Comuns ao modelo/ProductGroup:** Assistente de permanência em faixa; Detecção de pedestres; Detecção de ciclistas; Controle eletrônico de estabilidade.
+- **Versão — direção, rodagem e acabamento:** Direção; Rodas; Lanternas em LED; Rack de Teto; Acabamento Externo; Design das Rodas; Grade Frontal; Logomarca Chevrolet (Bow Tie); Parachoques.
+- **Versão — conforto e conveniência:** Assistente de Partida em Aclive; Ar-condicionado; Ar-condicionado Digital Automático; Câmera de Ré; Câmera de Ré Digital; Chave com Sensor de Aproximação; Controlador de Limite de Velocidade; Easy Entry; Easy Park; Easy Start; Sistema de Luz Siga-me; Sistema de Luz Leve-me; Travas Elétricas; Vidros Elétricos; Carregador sem Fio.
+- **Versão — conectividade e multimídia:** Painel Digital; Central Multimídia; Rádio AM/FM; Entrada USB; Android Auto; Apple CarPlay; Wi-Fi embarcado; OnStar.
+- **Versão — segurança:** Alerta de Frenagem de Emergência; Alerta de Colisão Frontal; Alerta de Ponto Cego; Frenagem Automática de Emergência em Baixa Velocidade; Indicador de Distância do Veículo da Frente; Monitoramento da Pressão dos Pneus; ISOFIX; TOP TETHER; ABS; EBD; Assistência de Frenagem de Urgência.
+
+Os valores novos começam vazios e independem por versão. A interface organiza o catálogo por categoria, facilita valores Sim/Não e permite texto técnico descritivo; os itens personalizados continuam disponíveis para qualquer propriedade fora do TXT. O motor omite itens sem valor, conserva a associação ao `ProductGroup`/`Vehicle` adequada e evita propriedades duplicadas. Projetos no armazenamento local e backups antigos são migrados apenas adicionando campos ausentes vazios, preservando respostas e propriedades personalizadas existentes.
+
+A implementação preserva a arquitetura React/TypeScript já aprovada, adicionando um módulo de catálogo reutilizável, UI categorizada e regressões de inventário, serialização, migração e créditos. O dado de autoria será um link externo acessível, sem alterar os schemas da PDP.

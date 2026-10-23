@@ -34,3 +34,20 @@
 - [x] A entrega será uma aplicação funcional, não apenas um protótipo visual, adequada a qualquer PDP automotiva e capaz de gerar automaticamente um único bloco JSON-LD consistente, pronto para implementação.
 - [x] Serão exercitados casos com diferentes quantidades de versões, com e sem vídeos, várias imagens e cores, dados opcionais ausentes e placeholders pendentes. Os problemas encontrados serão corrigidos antes da entrega.
 - [x] A entrega informará funcionalidades implementadas, testes realizados e limitações conhecidas, incluindo a forma/escopo da persistência.
+
+
+## Atualizações solicitadas — 22/10/2026
+
+### Crédito de autoria — Concluído
+
+- [x] Exibir no rodapé o texto exato “Desenvolvido por Vívian Ferreira - Marketing Estratégico 360”, como link para `https://www.linkedin.com/in/vivianfmkt`.
+- [x] Exibir a atribuição também no cabeçalho, onde fizer sentido, mantendo o link acessível, responsivo e abrindo em nova aba com proteção `noopener`/`noreferrer`.
+
+### Catálogo pré-carregado de propriedades automotivas — Concluído
+
+- [x] Pré-carregar, sem inserir respostas ou valores fictícios, as quatro propriedades compartilhadas de `ProductGroup` presentes no TXT: “Assistente de permanência em faixa”, “Detecção de pedestres”, “Detecção de ciclistas” e “Controle eletrônico de estabilidade”.
+- [x] Pré-carregar por versão as 43 propriedades de veículo ainda não cobertas pelos controles técnicos dedicados da v1: Direção; Rodas; Assistente de Partida em Aclive; Ar-condicionado; Câmera de Ré; Chave com Sensor de Aproximação; Controlador de Limite de Velocidade; Easy Entry; Easy Start; Painel Digital; Sistema de Luz Siga-me; Sistema de Luz Leve-me; Travas Elétricas; Vidros Elétricos; Central Multimídia; Rádio AM/FM; Entrada USB; Android Auto; Apple CarPlay; Wi-Fi embarcado; OnStar; Alerta de Frenagem de Emergência; ISOFIX; TOP TETHER; ABS; EBD; Assistência de Frenagem de Urgência; Ar-condicionado Digital Automático; Câmera de Ré Digital; Alerta de Colisão Frontal; Alerta de Ponto Cego; Frenagem Automática de Emergência em Baixa Velocidade; Indicador de Distância do Veículo da Frente; Monitoramento da Pressão dos Pneus; Lanternas em LED; Rack de Teto; Acabamento Externo; Design das Rodas; Carregador sem Fio; Easy Park; Grade Frontal; Logomarca Chevrolet (Bow Tie); Parachoques.
+- [x] Os campos pré-carregados aceitarão “Sim”, “Não” ou uma descrição/especificação livre, ficarão vazios até preenchimento e só gerarão `PropertyValue` quando houver valor. Permanecem independentes para cada versão; propriedades comuns do modelo ficam disponíveis no nível comum apropriado.
+- [x] Manter controles tipados já existentes para Motorização, potências, torques, transmissão, tração e airbags, evitando duplicá-los no catálogo ou no JSON-LD.
+- [x] Manter a possibilidade de adicionar e excluir propriedades personalizadas que não estejam no TXT, tanto comuns quanto por versão.
+- [x] Ao abrir projetos locais e backups da v1, adicionar somente propriedades de catálogo ausentes com valores vazios; preservar respostas existentes, IDs/dados das entradas customizadas e não escrever informações inventadas no JSON-LD.

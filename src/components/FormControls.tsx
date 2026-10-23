@@ -22,8 +22,8 @@ export function Field({ label, value, onChange, placeholder, hint, unit, type = 
     <label className={`field${wide ? ' field--wide' : ''}`} htmlFor={controlId}>
       <span className="field__label">{label}{required && <span className="field__required"> obrigatório</span>}</span>
       <span className="field__control-wrap">
-        {rows ? <textarea id={controlId} value={value} rows={rows} placeholder={placeholder} inputMode={inputMode} onChange={(event) => onChange(event.target.value)} />
-          : <input id={controlId} type={type} value={value} placeholder={placeholder} inputMode={inputMode} onChange={(event) => onChange(event.target.value)} />}
+        {rows ? <textarea id={controlId} value={value} rows={rows} placeholder={placeholder} inputMode={inputMode} required={required} aria-required={required || undefined} onChange={(event) => onChange(event.target.value)} />
+          : <input id={controlId} type={type} value={value} placeholder={placeholder} inputMode={inputMode} required={required} aria-required={required || undefined} onChange={(event) => onChange(event.target.value)} />}
         {unit && <span className="field__unit">{unit}</span>}
       </span>
       {hint && <span className="field__hint">{hint}</span>}

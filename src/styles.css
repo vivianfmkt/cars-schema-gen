@@ -87,6 +87,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .topbar__brand .brand-mark { width: 39px; height: 39px; }
 .topbar h1 { margin: 0 0 4px; font-size: 17px; letter-spacing: -.045em; }
 .topbar h1 span { color: #a2a8ab; font-weight: 400; }
+.topbar__credit { display: inline-block; margin-top: 5px; color: #e1bd62; font-size: 9px; text-decoration: none; }
+.topbar__credit:hover, .form-footer__credit:hover { color: #ffe08b; text-decoration: underline; text-underline-offset: 2px; }
 .project-name-field { display: flex; width: 210px; flex-direction: column; gap: 4px; }
 .project-name-field input { width: 100%; padding: 5px 7px; color: #f1eee6; border: 1px solid transparent; border-radius: 4px; background: transparent; font-size: 12px; font-weight: 600; }
 .project-name-field input:hover, .project-name-field input:focus { border-color: var(--line); background: var(--field); }
@@ -161,6 +163,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .feature-list__heading > div { display: flex; flex-direction: column; gap: 3px; }
 .feature-row { display: grid; grid-template-columns: 1fr 1fr 29px; gap: 6px; margin-bottom: 6px; }
 .feature-row input { min-width: 0; min-height: 31px; padding: 6px 8px; color: var(--text); border: 1px solid #404344; border-radius: 5px; background: var(--field); font-size: 9px; }
+.feature-catalog { margin: 9px 0 15px; }
+.feature-catalog__heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.feature-catalog__heading > div { display: flex; flex-direction: column; gap: 4px; }
+.feature-catalog__search-label { flex: 0 1 190px; }
+.feature-catalog__search-label input, .feature-catalog__field input { width: 100%; min-width: 0; min-height: 32px; padding: 7px 8px; color: #efece4; border: 1px solid #404344; border-radius: 5px; background: var(--field); font-size: 9px; }
+.feature-catalog__search-label input:focus, .feature-catalog__field input:focus { border-color: var(--accent); outline: 2px solid #edc15122; }
+.feature-catalog__search-label input::placeholder, .feature-catalog__field input::placeholder { color: #72787a; }
+.feature-catalog__group { margin: 5px 0; border: 1px solid #343738; border-radius: 6px; background: #191a1b; }
+.feature-catalog__group summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 9px; color: #ddd9cf; cursor: pointer; font-size: 9px; font-weight: 600; list-style-position: inside; }
+.feature-catalog__group summary:hover { color: #fff0c7; }
+.feature-catalog__count { color: var(--muted); font-family: var(--mono); font-size: 8px; }
+.feature-catalog__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 3px 9px 10px; }
+.feature-catalog__field { display: flex; min-width: 0; flex-direction: column; gap: 4px; color: #bfc2c0; font-size: 9px; line-height: 1.4; }
+.feature-catalog__field input { font-weight: 400; }
 .empty-inline { color: #7b8487; font-size: 9px; }
 .icon-button { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; padding: 0; color: #b1b6b8; border: 1px solid #404345; border-radius: 5px; background: #262728; cursor: pointer; font-family: var(--mono); font-size: 12px; }
 .icon-button:hover:not(:disabled) { color: white; border-color: #687073; }
@@ -241,9 +257,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .export-actions .button { min-height: 34px; font-size: 10px; }
 .export-footnote { margin: 4px 10px 10px; color: #868f92; font-size: 8px; line-height: 1.5; }
 .export-footnote code { color: #ebd9ab; font-family: var(--mono); font-size: 8px; }
-.form-footer { display: flex; align-items: center; gap: 8px; padding: 8px 3px; color: #889093; font-size: 9px; }
+.form-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 3px; color: #889093; font-size: 9px; }
 .form-footer .brand-mark { width: 23px; height: 23px; }
 .form-footer .micro-label { margin-left: auto; font-size: 8px; }
+.form-footer__credit { color: #e1bd62; font-size: 9px; text-decoration: none; }
 .notice { display: flex; justify-content: space-between; padding: 9px 11px; border: 1px solid #654345; border-radius: 6px; background: #2a1c20; color: #ffd5d4; font-size: 10px; }
 .notice button { border: 0; background: none; color: inherit; cursor: pointer; }
 .toast { position: fixed; right: 20px; bottom: 20px; z-index: 40; max-width: min(420px, calc(100vw - 40px)); padding: 11px 15px; color: #fbf1d8; border: 1px solid #5b6062; border-radius: 7px; background: #262829; box-shadow: 0 10px 30px #0006; font-size: 11px; animation: toast-in .2s ease-out; }
@@ -282,6 +299,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .topbar__brand { gap: 7px; }
   .topbar__brand .brand-mark { width: 31px; height: 31px; }
   .topbar .eyebrow { font-size: 8px; }
+  .topbar__credit { font-size: 8px; }
   .project-name-field { width: 125px; }
   .app-toolbar { padding-inline: 13px; }
   .workspace { display: flex; flex-direction: column; gap: 12px; padding: 8px 10px 18px; }
@@ -302,6 +320,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .topbar { align-items: flex-start; }
   .topbar h1 span { display: block; margin-top: 1px; font-size: 11px; }
   .topbar .eyebrow { font-size: 7px; }
+  .topbar__credit { max-width: 170px; font-size: 7px; line-height: 1.35; }
   .project-name-field { width: 96px; }
   .project-name-field input { padding-left: 2px; font-size: 10px; }
   .field-row { grid-template-columns: 1fr; }
@@ -311,6 +330,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .version-card__toolbar { flex-wrap: wrap; }
   .version-card__toolbar .micro-label { width: 100%; }
   .feature-row { grid-template-columns: 1fr 1fr 28px; }
+  .feature-catalog__heading { align-items: stretch; flex-direction: column; }
+  .feature-catalog__search-label { flex-basis: auto; }
+  .feature-catalog__fields { grid-template-columns: 1fr; }
   .repeat-card__header { flex-wrap: wrap; }
   .repeat-card__header .button { margin-left: auto; }
   .media-card__footer { align-items: flex-start; }

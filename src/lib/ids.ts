@@ -1,4 +1,5 @@
 import type { BreadcrumbEntry, FaqEntry, FeatureEntry, ImageDraft, OfferDraft, PdpFormData, ProjectRecord, VehicleVersion, VideoDraft } from '../model/types';
+import { featureNameKey, SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG, type FeatureDefinition } from './feature-catalog';
 
 export function createId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -64,13 +65,36 @@ export function createBlankMeasurements() {
 
 export function createBlankFeature(): FeatureEntry { return { id: createId(), name: '', value: '' }; }
 
+function createFeatureEntries(catalog: readonly FeatureDefinition[]): FeatureEntry[] {
+  return catalog.map(({ name }) => ({ id: createId(), name, value: '' }));
+}
+
+function addMissingFeatureEntries(entries: FeatureEntry[], catalog: readonly FeatureDefinition[]): FeatureEntry[] {
+  const existingNames = new Set(entries.map((entry) => featureNameKey(entry.name)).filter(Boolean));
+  const missing = catalog.filter((definition) => !existingNames.has(featureNameKey(definition.name)))
+    .map(({ name }) => ({ id: createId(), name, value: '' }));
+  return [...entries, ...missing];
+}
+
+/** Adds new catalog fields without replacing values or custom properties from a saved v1 project. */
+export function ensureFeatureCatalog(data: PdpFormData): PdpFormData {
+  return {
+    ...data,
+    sharedFeatures: addMissingFeatureEntries(data.sharedFeatures, SHARED_FEATURE_CATALOG),
+    versions: data.versions.map((version) => ({
+      ...version,
+      features: addMissingFeatureEntries(version.features, VERSION_FEATURE_CATALOG),
+    })),
+  };
+}
+
 export function createBlankVersion(name = ''): VehicleVersion {
   return {
     id: createId(), name, configuration: '', modelDate: '', bodyType: '', fuelType: '', driveWheelConfiguration: '',
     transmission: '', numberOfDoors: '', seatingCapacity: '', numberOfAirbags: '', exteriorColors: [], interiorColors: [],
     measurements: createBlankMeasurements(), consumption: { urbanGasoline: '', highwayGasoline: '', urbanEthanol: '', highwayEthanol: '' },
     emissionsCO2: '', engineType: '', numberOfCylinders: '', engineDisplacement: '', powerOutput: '',
-    powerGasoline: '', powerEthanol: '', torque: '', torqueGasoline: '', torqueEthanol: '', features: [],
+    powerGasoline: '', powerEthanol: '', torque: '', torqueGasoline: '', torqueEthanol: '', features: createFeatureEntries(VERSION_FEATURE_CATALOG),
   };
 }
 
@@ -99,7 +123,7 @@ export function createBlankData(): PdpFormData {
     manufacturer: { name: '', url: '', email: '', telephone: '', logoUrl: '', sameAs: [] },
     brand: { name: '', url: '', sameAs: [] },
     modelName: '', modelYear: '', category: '', bodyType: '', modelDescription: '',
-    commonExteriorColors: [], commonInteriorColors: [], sharedMeasurements: createBlankMeasurements(), sharedFeatures: [],
+    commonExteriorColors: [], commonInteriorColors: [], sharedMeasurements: createBlankMeasurements(), sharedFeatures: createFeatureEntries(SHARED_FEATURE_CATALOG),
     versions: [createBlankVersion()], offers: [], breadcrumbs: [], faqs: [], images: [], videos: [],
   };
 }

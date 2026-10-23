@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { Measurements, PdpFormData, VehicleVersion } from '../model/types';
 import { createBlankVersion, createId } from '../lib/ids';
+import { isCatalogFeatureName, SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG } from '../lib/feature-catalog';
 import { Field, FieldRow, FeatureList, SectionCard, Subheading, TagList } from './FormControls';
+import { FeatureCatalogEditor } from './FeatureCatalogEditor';
 
 const measurementFields: [keyof Measurements, string, string][] = [
   ['length', 'Comprimento', 'mm'], ['width', 'Largura', 'mm'], ['height', 'Altura', 'mm'],
@@ -78,7 +80,11 @@ function VersionCard({ version, index, count, onPatch, onDuplicate, onDelete, on
           <TagList label="Cores externas desta versão" items={version.exteriorColors} onChange={(items) => onPatch({ exteriorColors: items })} />
           <TagList label="Cores internas desta versão" items={version.interiorColors} onChange={(items) => onPatch({ interiorColors: items })} />
         </FieldRow>
-        <FeatureList title="Equipamentos desta versão" entries={version.features} onChange={(features) => onPatch({ features })} hint="Cada par propriedade/valor será um PropertyValue." />
+        <FeatureCatalogEditor title="Propriedades pré-carregadas desta versão" catalog={VERSION_FEATURE_CATALOG} entries={version.features}
+          onChange={(features) => onPatch({ features })} />
+        <FeatureList title="Outras propriedades personalizadas da versão" entries={version.features.filter((entry) => !isCatalogFeatureName(entry.name, 'version'))}
+          onChange={(custom) => onPatch({ features: [...version.features.filter((entry) => isCatalogFeatureName(entry.name, 'version')), ...custom] })}
+          hint="Adicione qualquer característica que não esteja no catálogo; os pares serão serializados como PropertyValue." />
       </div>
     </details>
   );
@@ -125,7 +131,11 @@ export function VersionEditor({ data, onChange }: { data: PdpFormData; onChange(
           {measurementFields.map(([key, label, unit]) => <Field key={key} label={label} value={data.sharedMeasurements[key]}
             onChange={(value) => sharedMeasurement(key, value)} unit={unit} inputMode="decimal" />)}
         </FieldRow>
-        <FeatureList title="Características comuns do modelo" entries={data.sharedFeatures} onChange={(sharedFeatures) => onChange({ ...data, sharedFeatures })} />
+        <FeatureCatalogEditor title="Propriedades pré-carregadas comuns do modelo" catalog={SHARED_FEATURE_CATALOG} entries={data.sharedFeatures}
+          onChange={(sharedFeatures) => onChange({ ...data, sharedFeatures })} />
+        <FeatureList title="Outras propriedades personalizadas do modelo" entries={data.sharedFeatures.filter((entry) => !isCatalogFeatureName(entry.name, 'shared'))}
+          onChange={(custom) => onChange({ ...data, sharedFeatures: [...data.sharedFeatures.filter((entry) => isCatalogFeatureName(entry.name, 'shared')), ...custom] })}
+          hint="Adicione características comuns não previstas no catálogo." />
       </SectionCard>
 
       <SectionCard id="versions" number="04" title="Versões" description="Cada versão possui seu próprio motor, transmissão, consumo, cores, dimensões e equipamentos."

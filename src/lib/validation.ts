@@ -1,5 +1,6 @@
-import type { JsonLdDocument, PdpFormData, ProjectRecord, SchemaEntity, ValidationIssue } from '../model/types';
+import type { FeatureEntry, JsonLdDocument, PdpFormData, ProjectRecord, SchemaEntity, ValidationIssue } from '../model/types';
 import { cleanText, createId, isHttpUrl, isPlaceholder, parseLocalizedNumber } from './ids';
+import { featureNameKey, isCatalogFeatureName } from './feature-catalog';
 
 function issue(severity: ValidationIssue['severity'], code: string, message: string, section: string, field?: string, entityId?: string): ValidationIssue {
   return { id: `${code}-${entityId ?? field ?? section}-${createId().slice(0, 6)}`, severity, code, message, target: { section, field, entityId } };
@@ -29,6 +30,15 @@ function urlField(issues: ValidationIssue[], value: string, label: string, secti
 function incompletePair(issues: ValidationIssue[], first: string, second: string, label: string, section: string, id: string, firstName: string, secondName: string) {
   const a = hasText(first); const b = hasText(second);
   if (a !== b) issues.push(issue('warning', 'incomplete-property', `${label}: informe ${a ? secondName : firstName}; o campo incompleto não será gerado.`, section, a ? secondName : firstName, id));
+}
+function duplicateFeatureNames(issues: ValidationIssue[], entries: FeatureEntry[], section: string, parentId?: string) {
+  const seen = new Set<string>();
+  for (const feature of entries) {
+    if (!hasText(feature.name) || !hasText(feature.value)) continue;
+    const key = featureNameKey(cleanText(feature.name));
+    if (seen.has(key)) issues.push(issue('warning', 'duplicate-feature-name', `A propriedade “${feature.name}” está repetida; será mantido apenas um valor no JSON-LD.`, section, 'features', parentId ?? feature.id));
+    seen.add(key);
+  }
 }
 function checkPlaceholders(value: unknown, path: string, issues: ValidationIssue[], seen: Set<string>) {
   if (typeof value === 'string' && isPlaceholder(value)) {
@@ -78,6 +88,7 @@ export function validateProject(data: PdpFormData): ValidationIssue[] {
   };
   data.versions.forEach((version) => { checkInputId(version, 'versions'); version.features.forEach((feature) => checkInputId(feature, 'versions')); });
   data.sharedFeatures.forEach((feature) => checkInputId(feature, 'model'));
+  duplicateFeatureNames(issues, data.sharedFeatures, 'model');
   data.images.forEach((image) => checkInputId(image, 'media'));
   data.videos.forEach((video) => checkInputId(video, 'media'));
   data.offers.forEach((offer) => checkInputId(offer, 'offers'));
@@ -116,10 +127,32 @@ export function validateProject(data: PdpFormData): ValidationIssue[] {
       if (seenColors.has(key)) issues.push(issue('warning', 'duplicate-color', `Cor repetida na versão: “${color}”.`, section, 'exteriorColors', version.id));
       seenColors.add(key);
     });
-    version.features.forEach((feature) => incompletePair(issues, feature.name, feature.value, 'Equipamento', section, feature.id, 'name', 'value'));
+    version.features.forEach((feature) => {
+      if (!isCatalogFeatureName(feature.name, 'version') || hasText(feature.value)) {
+        incompletePair(issues, feature.name, feature.value, 'Equipamento', section, feature.id, 'name', 'value');
+      }
+    });
+    duplicateFeatureNames(issues, version.features, section, version.id);
+    const typedPropertyValues = [
+      ['Potência Máxima Gasolina', version.powerGasoline],
+      ['Potência Máxima Etanol', version.powerEthanol],
+      ['Torque Máximo Gasolina', version.torqueGasoline],
+      ['Torque Máximo Etanol', version.torqueEthanol],
+    ] as const;
+    const relevantFeatures = [...version.features, ...(data.versions.length === 1 ? data.sharedFeatures : [])];
+    for (const feature of relevantFeatures) {
+      const typed = typedPropertyValues.find(([name]) => featureNameKey(name) === featureNameKey(feature.name));
+      if (typed && hasText(feature.value) && hasText(typed[1])) {
+        issues.push(issue('warning', 'typed-property-override', `“${typed[0]}” foi informada também como propriedade personalizada; prevalece o campo técnico estruturado.`, section, 'features', feature.id));
+      }
+    }
   }
 
-  for (const feature of data.sharedFeatures) incompletePair(issues, feature.name, feature.value, 'Equipamento comum', 'model', feature.id, 'name', 'value');
+  for (const feature of data.sharedFeatures) {
+    if (!isCatalogFeatureName(feature.name, 'shared') || hasText(feature.value)) {
+      incompletePair(issues, feature.name, feature.value, 'Equipamento comum', 'model', feature.id, 'name', 'value');
+    }
+  }
   const versionIdSet = new Set(data.versions.map((version) => version.id));
   for (const [section, entries] of [['images', data.images], ['videos', data.videos], ['offers', data.offers]] as const) {
     entries.forEach((entry) => {

@@ -1,5 +1,6 @@
 import type { GenerationResult, ImageDraft, JsonLdDocument, OfferDraft, PdpFormData, SchemaEntity, ValidationIssue, VehicleVersion, VideoDraft } from '../model/types';
 import { canonicalPageUrl, cleanText, isHttpUrl, parseLocalizedNumber, reference, slugify } from './ids';
+import { featureNameKey } from './feature-catalog';
 import { validateGraph, validateProject } from './validation';
 
 const SCHEMA = 'https://schema.org/';
@@ -68,8 +69,23 @@ function organizationNode(profile: PdpFormData['organization'] | PdpFormData['ma
 }
 
 function propertyList(features: PdpFormData['sharedFeatures'], version?: VehicleVersion): Record<string, unknown>[] | undefined {
-  const result = [...features, ...(version?.features ?? [])].map((feature) => propertyValue(feature.name, feature.value)).filter(Boolean) as Record<string, unknown>[];
+  const byName = new Map<string, Record<string, unknown>>();
+  for (const feature of [...features, ...(version?.features ?? [])]) {
+    const property = propertyValue(feature.name, feature.value);
+    if (property) byName.set(featureNameKey(trim(feature.name)), property);
+  }
+  const result = [...byName.values()];
   return result.length ? result : undefined;
+}
+
+function deduplicatePropertyValues(properties: Array<Record<string, unknown> | undefined>): Record<string, unknown>[] {
+  const byName = new Map<string, Record<string, unknown>>();
+  for (const property of properties) {
+    if (!property || typeof property.name !== 'string') continue;
+    const key = featureNameKey(property.name);
+    if (key) byName.set(key, property);
+  }
+  return [...byName.values()];
 }
 
 function measurement(data: PdpFormData, version: VehicleVersion, key: keyof PdpFormData['sharedMeasurements'], unit: { unitCode: string }): Record<string, unknown> | undefined {
@@ -246,7 +262,7 @@ export function generateSchema(data: PdpFormData): GenerationResult {
   }) as SchemaEntity;
   graph.push(pageEntity);
 
-  const sharedProperties = data.sharedFeatures.map((feature) => propertyValue(feature.name, feature.value)).filter(Boolean) as Record<string, unknown>[];
+  const sharedProperties = propertyList(data.sharedFeatures) ?? [];
   const allImageRefs = imageNodes.map((image) => reference(imageUrlId(image.contentUrl, imageIdByUrl)!));
   const groupName = trim(data.modelName);
   if (groupId && groupName) {
@@ -293,13 +309,13 @@ export function generateSchema(data: PdpFormData): GenerationResult {
       engineDisplacement: quantitative(version.engineDisplacement, { unitCode: 'CMQ' }),
       powerOutput: quantitative(version.powerOutput, { unitText: 'cv' }),
     });
-    const addProperties = [
-      ...(propertyList([], version) ?? []),
+    const addProperties = deduplicatePropertyValues([
+      ...(propertyList(groupId ? [] : data.sharedFeatures, version) ?? []),
       quantifiedProperty('Potência Máxima Gasolina', version.powerGasoline, 'cv'),
       quantifiedProperty('Potência Máxima Etanol', version.powerEthanol, 'cv'),
       quantifiedProperty('Torque Máximo Gasolina', version.torqueGasoline, 'kgfm'),
       quantifiedProperty('Torque Máximo Etanol', version.torqueEthanol, 'kgfm'),
-    ].filter(Boolean) as Record<string, unknown>[];
+    ]);
     const pageOfferRefs = groupId ? [] : offerRefsByScope.get('page') ?? [];
     const specificOfferRefs = offerRefsByScope.get(version.id) ?? [];
     const offers = [...pageOfferRefs, ...specificOfferRefs];
