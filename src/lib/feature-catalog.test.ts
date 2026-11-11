@@ -7,73 +7,29 @@ import {
 } from './feature-catalog';
 
 describe('catálogo de propriedades extraído do TXT', () => {
-  it('contém todos os nomes comuns e de versão não cobertos pelos campos tipados da v1', () => {
+  it('contém o catálogo completo de características comuns e específicas, sem duplicar nomes', () => {
     expect(SHARED_FEATURE_CATALOG.map((entry) => entry.name)).toEqual([
-      'Assistente de permanência em faixa',
-      'Detecção de pedestres',
-      'Detecção de ciclistas',
-      'Controle eletrônico de estabilidade',
+      'Assistente de permanência em faixa', 'Detecção de pedestres', 'Detecção de ciclistas', 'Controle eletrônico de estabilidade',
+      'Direção', 'Assistente de Partida em Aclive', 'Chave com Sensor de Aproximação', 'Controlador de Limite de Velocidade',
+      'Easy Entry', 'Easy Start', 'Sistema de Luz Siga-me', 'Sistema de Luz Leve-me', 'Travas Elétricas', 'Vidros Elétricos',
+      'Rádio AM/FM', 'Android Auto', 'Apple CarPlay', 'Wi-Fi embarcado', 'OnStar', 'Alerta de Frenagem de Emergência',
+      'ISOFIX', 'TOP TETHER', 'ABS', 'EBD', 'Assistência de Frenagem de Urgência',
     ]);
 
     expect(VERSION_FEATURE_CATALOG.map((entry) => entry.name)).toEqual([
-      'Direção',
-      'Rodas',
-      'Lanternas em LED',
-      'Rack de Teto',
-      'Acabamento Externo',
-      'Design das Rodas',
-      'Grade Frontal',
-      'Logomarca Chevrolet (Bow Tie)',
-      'Parachoques',
-      'Assistente de Partida em Aclive',
-      'Ar-condicionado',
-      'Ar-condicionado Digital Automático',
-      'Câmera de Ré',
-      'Câmera de Ré Digital',
-      'Chave com Sensor de Aproximação',
-      'Controlador de Limite de Velocidade',
-      'Easy Entry',
-      'Easy Park',
-      'Easy Start',
-      'Sistema de Luz Siga-me',
-      'Sistema de Luz Leve-me',
-      'Travas Elétricas',
-      'Vidros Elétricos',
-      'Carregador sem Fio',
-      'Painel Digital',
-      'Central Multimídia',
-      'Rádio AM/FM',
-      'Entrada USB',
-      'Android Auto',
-      'Apple CarPlay',
-      'Wi-Fi embarcado',
-      'OnStar',
-      'Alerta de Frenagem de Emergência',
-      'Alerta de Colisão Frontal',
-      'Alerta de Ponto Cego',
-      'Frenagem Automática de Emergência em Baixa Velocidade',
-      'Indicador de Distância do Veículo da Frente',
-      'Monitoramento da Pressão dos Pneus',
-      'ISOFIX',
-      'TOP TETHER',
-      'ABS',
-      'EBD',
-      'Assistência de Frenagem de Urgência',
+      'Rodas', 'Lanternas em LED', 'Rack de Teto', 'Acabamento Externo', 'Design das Rodas', 'Grade Frontal',
+      'Logomarca Chevrolet (Bow Tie)', 'Parachoques', 'Ar-condicionado', 'Ar-condicionado Digital Automático',
+      'Câmera de Ré', 'Câmera de Ré Digital', 'Easy Park', 'Carregador sem Fio', 'Painel Digital', 'Central Multimídia',
+      'Entrada USB', 'Alerta de Colisão Frontal', 'Alerta de Ponto Cego', 'Frenagem Automática de Emergência em Baixa Velocidade',
+      'Indicador de Distância do Veículo da Frente', 'Monitoramento da Pressão dos Pneus',
     ]);
 
-    expect(VERSION_FEATURE_CATALOG).toHaveLength(43);
-    expect(SHARED_FEATURE_CATALOG).toHaveLength(4);
+    expect(VERSION_FEATURE_CATALOG).toHaveLength(22);
+    expect(SHARED_FEATURE_CATALOG).toHaveLength(25);
     expect(CORE_TYPED_SOURCE_PROPERTIES.map((entry) => entry.name)).toEqual([
-      'Motorização',
-      'Potência Máxima Gasolina',
-      'Potência Máxima Etanol',
-      'Torque Máximo Gasolina',
-      'Torque Máximo Etanol',
-      'Transmissão',
-      'Tração',
-      'Airbags',
+      'Motorização', 'Potência Máxima Gasolina', 'Potência Máxima Etanol', 'Torque Máximo Gasolina',
+      'Torque Máximo Etanol', 'Transmissão', 'Tração', 'Airbags',
     ]);
-
     const allSourcePropertyNames = [
       ...SHARED_FEATURE_CATALOG.map((entry) => entry.name),
       ...VERSION_FEATURE_CATALOG.map((entry) => entry.name),

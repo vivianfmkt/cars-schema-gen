@@ -28,6 +28,16 @@ export interface Measurements {
   fuelCapacity: string;
 }
 
+export type VersionMeasurements = Omit<Measurements, 'wheelbase'>;
+
+export interface SharedMigrationConflict {
+  id: string;
+  target: 'vehicleProperty' | 'measurement' | 'feature';
+  key: string;
+  label: string;
+  candidates: { versionId: string; versionName: string; value: string }[];
+}
+
 export interface NumericMeasureDraft {
   value: string;
   minValue: string;
@@ -69,15 +79,9 @@ export interface VehicleVersion {
   configuration: string;
   modelDate: string;
   bodyType: string;
-  fuelType: string;
-  driveWheelConfiguration: string;
-  transmission: string;
-  numberOfDoors: string;
-  seatingCapacity: string;
-  numberOfAirbags: string;
   exteriorColors: string[];
   interiorColors: string[];
-  measurements: Measurements;
+  measurements: VersionMeasurements;
   consumption: ConsumptionValues;
   emissionsCO2: NumericMeasureDraft;
   engineType: string;
@@ -162,6 +166,7 @@ export interface PdpFormData {
   sharedMeasurements: Measurements;
   sharedVehicleProperties: SharedVehicleProperties;
   sharedFeatures: FeatureEntry[];
+  migrationConflicts: SharedMigrationConflict[];
   versions: VehicleVersion[];
   offers: OfferDraft[];
   breadcrumbs: BreadcrumbEntry[];

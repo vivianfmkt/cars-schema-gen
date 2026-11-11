@@ -4,7 +4,7 @@ import { Field, FieldRow, SectionCard, SelectField } from './FormControls';
 
 function ScopeSelect({ value, versions, onChange }: { value: string; versions: PdpFormData['versions']; onChange(value: string): void }) {
   const exists = value === 'page' || versions.some((version) => version.id === value);
-  return <label className="field field--wide"><span className="field__label">Vincular oferta a</span><select value={value} onChange={(event) => onChange(event.target.value)}>
+  return <label className="field field--wide"><span className="field__label">Vincular oferta a<code className="field__schema-property">offers</code></span><select value={value} onChange={(event) => onChange(event.target.value)}>
     <option value="page">Página / grupo (geral)</option>
     {!exists && <option value={value}>Versão removida — selecione outra</option>}
     {versions.map((version, index) => <option value={version.id} key={version.id}>Versão {index + 1}: {version.name || 'sem nome'}</option>)}
@@ -19,19 +19,19 @@ function OfferCard({ offer, index, versions, onChange, onDelete }: { offer: Offe
     <div className="repeat-card__body">
       <ScopeSelect value={offer.scope} versions={versions} onChange={(scope) => patch({ scope })} />
       <FieldRow>
-        <Field label="Nome da oferta" value={offer.name} onChange={(name) => patch({ name })} placeholder="Opcional" />
-        <Field label="Preço" value={offer.price} onChange={(price) => patch({ price })} inputMode="decimal" placeholder="Ex.: 129.990,00" />
-        <Field label="Moeda (ISO 4217)" value={offer.priceCurrency} onChange={(priceCurrency) => patch({ priceCurrency: priceCurrency.toUpperCase() })} placeholder="BRL" />
-        <Field label="URL da oferta" value={offer.url} onChange={(url) => patch({ url })} type="url" placeholder="https://…" />
-        <SelectField label="Disponibilidade" value={offer.availability} onChange={(availability) => patch({ availability })} options={[
+        <Field label="Nome da oferta" schemaProperty="name" value={offer.name} onChange={(name) => patch({ name })} placeholder="Opcional" />
+        <Field label="Preço" schemaProperty="price" value={offer.price} onChange={(price) => patch({ price })} inputMode="decimal" placeholder="Ex.: 129.990,00" />
+        <Field label="Moeda (ISO 4217)" schemaProperty="priceCurrency" value={offer.priceCurrency} onChange={(priceCurrency) => patch({ priceCurrency: priceCurrency.toUpperCase() })} placeholder="BRL" />
+        <Field label="URL da oferta" schemaProperty="url" value={offer.url} onChange={(url) => patch({ url })} type="url" placeholder="https://…" />
+        <SelectField label="Disponibilidade" schemaProperty="availability" value={offer.availability} onChange={(availability) => patch({ availability })} options={[
           ['InStock', 'Em estoque'], ['OutOfStock', 'Sem estoque'], ['PreOrder', 'Pré-venda'], ['BackOrder', 'Sob encomenda'],
           ['LimitedAvailability', 'Disponibilidade limitada'], ['OnlineOnly', 'Somente online'], ['Discontinued', 'Descontinuado'],
         ]} />
-        <SelectField label="Condição" value={offer.itemCondition} onChange={(itemCondition) => patch({ itemCondition })} options={[
+        <SelectField label="Condição" schemaProperty="itemCondition" value={offer.itemCondition} onChange={(itemCondition) => patch({ itemCondition })} options={[
           ['NewCondition', 'Novo'], ['UsedCondition', 'Usado'], ['RefurbishedCondition', 'Recondicionado'], ['DamagedCondition', 'Danificado'],
         ]} />
-        <Field label="Válida até" value={offer.priceValidUntil} onChange={(priceValidUntil) => patch({ priceValidUntil })} type="date" />
-        <Field label="Nome do vendedor" value={offer.sellerName} onChange={(sellerName) => patch({ sellerName })} placeholder="Opcional" />
+        <Field label="Válida até" schemaProperty="priceValidUntil" value={offer.priceValidUntil} onChange={(priceValidUntil) => patch({ priceValidUntil })} type="date" />
+        <Field label="Nome do vendedor" schemaProperty="seller.name" value={offer.sellerName} onChange={(sellerName) => patch({ sellerName })} placeholder="Opcional" />
       </FieldRow>
       <p className="field__hint">Offer é gerado somente com preço numérico e moeda válida. Campos restantes são opcionais.</p>
     </div>
@@ -55,7 +55,7 @@ export function BreadcrumbEditor({ data, onChange }: { data: PdpFormData; onChan
     {data.breadcrumbs.length ? <div className="repeat-list">{data.breadcrumbs.map((item, index) => <div className="repeat-card" key={item.id}>
       <div className="repeat-card__header"><span className="repeat-card__index">NÍVEL {String(index + 1).padStart(2, '0')}</span><span className="repeat-card__title">{item.name || 'Novo item'}</span>
         <button type="button" className="button button--small button--danger" onClick={() => onChange({ ...data, breadcrumbs: data.breadcrumbs.filter((entry) => entry.id !== item.id) })}>Remover</button></div>
-      <FieldRow><Field label="Nome" value={item.name} onChange={(name) => patch(item, { name })} /><Field label="URL" value={item.url} onChange={(url) => patch(item, { url })} type="url" placeholder="https://…" wide /></FieldRow>
+      <FieldRow><Field label="Nome" schemaProperty="ListItem.name" value={item.name} onChange={(name) => patch(item, { name })} /><Field label="URL" schemaProperty="ListItem.item" value={item.url} onChange={(url) => patch(item, { url })} type="url" placeholder="https://…" wide /></FieldRow>
     </div>)}</div> : <div className="empty-state empty-state--compact"><span className="empty-state__symbol">NAV</span><span>Nenhum breadcrumb cadastrado.</span></div>}
   </SectionCard>;
 }
@@ -67,7 +67,7 @@ export function FaqEditor({ data, onChange }: { data: PdpFormData; onChange(data
     {data.faqs.length ? <div className="repeat-list">{data.faqs.map((item, index) => <div className="repeat-card" key={item.id}>
       <div className="repeat-card__header"><span className="repeat-card__index">FAQ {String(index + 1).padStart(2, '0')}</span><span className="repeat-card__title">{item.question || 'Nova pergunta'}</span>
         <button type="button" className="button button--small button--danger" onClick={() => onChange({ ...data, faqs: data.faqs.filter((entry) => entry.id !== item.id) })}>Remover</button></div>
-      <FieldRow><Field label="Pergunta" value={item.question} onChange={(question) => patch(item, { question })} rows={2} wide /><Field label="Resposta" value={item.answer} onChange={(answer) => patch(item, { answer })} rows={3} wide /></FieldRow>
+      <FieldRow><Field label="Pergunta" schemaProperty="Question.name" value={item.question} onChange={(question) => patch(item, { question })} rows={2} wide /><Field label="Resposta" schemaProperty="acceptedAnswer.text" value={item.answer} onChange={(answer) => patch(item, { answer })} rows={3} wide /></FieldRow>
     </div>)}</div> : <div className="empty-state empty-state--compact"><span className="empty-state__symbol">FAQ</span><span>Nenhuma pergunta cadastrada.</span></div>}
   </SectionCard>;
 }

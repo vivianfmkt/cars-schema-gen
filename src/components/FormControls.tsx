@@ -4,6 +4,7 @@ import { createBlankFeature } from '../lib/ids';
 
 interface FieldProps {
   label: string;
+  schemaProperty?: string;
   value: string;
   onChange(value: string): void;
   placeholder?: string;
@@ -16,11 +17,17 @@ interface FieldProps {
   rows?: number;
 }
 
-export function Field({ label, value, onChange, placeholder, hint, unit, type = 'text', inputMode, required, wide, rows }: FieldProps) {
+function FieldLabel({ label, schemaProperty, required }: { label: string; schemaProperty?: string; required?: boolean }) {
+  return <span className="field__label">
+    {label}{schemaProperty && <code className="field__schema-property">{schemaProperty}</code>}{required && <span className="field__required"> obrigatório</span>}
+  </span>;
+}
+
+export function Field({ label, schemaProperty, value, onChange, placeholder, hint, unit, type = 'text', inputMode, required, wide, rows }: FieldProps) {
   const controlId = `field-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   return (
     <label className={`field${wide ? ' field--wide' : ''}`} htmlFor={controlId}>
-      <span className="field__label">{label}{required && <span className="field__required"> obrigatório</span>}</span>
+      <FieldLabel label={label} schemaProperty={schemaProperty} required={required} />
       <span className="field__control-wrap">
         {rows ? <textarea id={controlId} value={value} rows={rows} placeholder={placeholder} inputMode={inputMode} required={required} aria-required={required || undefined} onChange={(event) => onChange(event.target.value)} />
           : <input id={controlId} type={type} value={value} placeholder={placeholder} inputMode={inputMode} required={required} aria-required={required || undefined} onChange={(event) => onChange(event.target.value)} />}
@@ -31,11 +38,11 @@ export function Field({ label, value, onChange, placeholder, hint, unit, type = 
   );
 }
 
-export function SelectField({ label, value, onChange, options, hint, wide }: { label: string; value: string; onChange(value: string): void; options: [string, string][]; hint?: string; wide?: boolean }) {
+export function SelectField({ label, schemaProperty, value, onChange, options, hint, wide }: { label: string; schemaProperty?: string; value: string; onChange(value: string): void; options: [string, string][]; hint?: string; wide?: boolean }) {
   const controlId = `field-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   return (
     <label className={`field${wide ? ' field--wide' : ''}`} htmlFor={controlId}>
-      <span className="field__label">{label}</span>
+      <FieldLabel label={label} schemaProperty={schemaProperty} />
       <select id={controlId} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">Não especificado</option>
         {options.map(([optionValue, name]) => <option key={optionValue} value={optionValue}>{name}</option>)}
@@ -66,7 +73,7 @@ export function Subheading({ title, description }: { title: string; description?
   return <div className="subheading"><h3>{title}</h3>{description && <p>{description}</p>}</div>;
 }
 
-export function TagList({ label, items, onChange, placeholder = 'Adicionar item…', hint, wide }: { label: string; items: string[]; onChange(items: string[]): void; placeholder?: string; hint?: string; wide?: boolean }) {
+export function TagList({ label, schemaProperty, items, onChange, placeholder = 'Adicionar item…', hint, wide }: { label: string; schemaProperty?: string; items: string[]; onChange(items: string[]): void; placeholder?: string; hint?: string; wide?: boolean }) {
   const [draft, setDraft] = useState('');
   const add = (event?: FormEvent) => {
     event?.preventDefault();
@@ -76,7 +83,7 @@ export function TagList({ label, items, onChange, placeholder = 'Adicionar item�
   };
   return (
     <div className={`tag-editor${wide ? ' field--wide' : ''}`}>
-      <span className="field__label">{label}</span>
+      <FieldLabel label={label} schemaProperty={schemaProperty} />
       {!!items.length && <div className="tag-list">{items.map((item, index) => <span className="tag" key={`${item}-${index}`}>
         {item}<button type="button" aria-label={`Remover ${item}`} onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}>×</button>
       </span>)}</div>}
@@ -93,7 +100,7 @@ export function FeatureList({ title, entries, onChange, hint }: { title: string;
   const patch = (id: string, values: Partial<FeatureEntry>) => onChange(entries.map((entry) => entry.id === id ? { ...entry, ...values } : entry));
   return (
     <div className="feature-list">
-      <div className="feature-list__heading"><div><span className="field__label">{title}</span>{hint && <span className="field__hint">{hint}</span>}</div>
+      <div className="feature-list__heading"><div><span className="field__label">{title}</span>{hint && <span className="field__hint">{hint}</span>}<code className="field__schema-property">additionalProperty.name / additionalProperty.value</code></div>
         <button type="button" className="button button--small button--secondary" onClick={() => onChange([...entries, createBlankFeature()])}>＋ Adicionar</button>
       </div>
       {entries.length === 0 && <p className="empty-inline">Nenhuma característica adicionada.</p>}

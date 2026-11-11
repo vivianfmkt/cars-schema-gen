@@ -13,7 +13,7 @@ function baseData() {
   data.siteName = 'Example Motors';
   data.pageTitle = 'Crossover — versões e ficha técnica';
   data.modelName = 'Crossover';
-  data.modelYear = '2027';
+  data.modelYear = '';
   data.brand.name = 'Example';
   data.organization.name = 'Example Motors Ltda.';
   data.organization.url = 'https://example.test/';
@@ -59,7 +59,6 @@ describe('generateSchema', () => {
     data.versions = Array.from({ length: 6 }, (_, index) => {
       const version = createBlankVersion(`Trim ${index + 1}`);
       version.configuration = `Trim ${index + 1}`;
-      version.fuelType = index < 3 ? 'Flex' : 'Elétrico';
       version.exteriorColors = index === 0 ? ['Azul'] : ['Prata'];
       return version;
     });
@@ -96,7 +95,7 @@ describe('generateSchema', () => {
     expect(parseLocalizedNumber('1,234.56')).toBe(1234.56);
   });
 
-  it('deduplica URLs de imagem e compartilha cores gerais com cada versão', () => {
+  it('deduplica imagens e mantém as cores comuns no ProductGroup, sem duplicá-las em Vehicle', () => {
     const data = baseData();
     data.versions[0].exteriorColors = ['Vermelho'];
     data.commonExteriorColors = ['Azul', 'Vermelho'];
@@ -113,8 +112,11 @@ describe('generateSchema', () => {
     data.images = [image, duplicate, secondImage];
     const result = generateSchema(data);
     expect(result.entityCounts.ImageObject).toBe(2);
+    const imageNode = result.document['@graph'].find((node) => node['@type'] === 'ImageObject')!;
+    expect(imageNode.inLanguage).toBeUndefined();
     const product = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
-    expect(product.color).toEqual(['Azul', 'Vermelho']);
+    expect(product.color).toEqual(['Vermelho']);
+    expect(result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')?.color).toEqual(['Azul', 'Vermelho']);
     expect(product.image).toHaveLength(2);
     expect(result.document['@graph'].find((node) => node['@type'] === 'WebPage')?.primaryImageOfPage).toBeDefined();
     expect(result.issues.some((entry) => entry.code === 'duplicate-image')).toBe(true);
@@ -274,7 +276,7 @@ describe('escopos de mídia por versão', () => {
 });
 
 describe('propriedades pré-carregadas do modelo e das versões', () => {
-  it('mantém os catálogos vazios sem avisos e só inclui os valores informados no Vehicle', () => {
+  it('mantém os catálogos vazios sem avisos e emite campos comuns e por versão na entidade correspondente', () => {
     const data = baseData();
     const empty = generateSchema(data);
     const vehicle = empty.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
@@ -285,34 +287,37 @@ describe('propriedades pré-carregadas do modelo e das versões', () => {
 
     data.sharedFeatures.find((entry) => entry.name === 'Controle eletrônico de estabilidade')!.value = 'Sim';
     data.versions[0].features.find((entry) => entry.name === 'Entrada USB')!.value = 'Duas portas USB-C';
-    data.versions[0].features.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Sim';
+    data.sharedFeatures.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Sim';
     const filled = generateSchema(data);
     const filledVehicle = filled.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
-    const properties = filledVehicle.additionalProperty as { name: string; value: string }[];
-    expect(properties).toEqual(expect.arrayContaining([
+    const group = filled.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
+    const versionProperties = filledVehicle.additionalProperty as { name: string; value: string }[];
+    const modelProperties = group.additionalProperty as { name: string; value: string }[];
+    expect(modelProperties).toEqual(expect.arrayContaining([
       { '@type': 'PropertyValue', name: 'Controle eletrônico de estabilidade', value: 'Sim' },
-      { '@type': 'PropertyValue', name: 'Entrada USB', value: 'Duas portas USB-C' },
       { '@type': 'PropertyValue', name: 'Vidros Elétricos', value: 'Sim' },
     ]));
-    expect(properties).toHaveLength(3);
+    expect(versionProperties).toEqual([{ '@type': 'PropertyValue', name: 'Entrada USB', value: 'Duas portas USB-C' }]);
   });
 
-  it('relaciona propriedades comuns ao ProductGroup e preserva valores diferentes por versão', () => {
+  it('relaciona propriedades comuns ao ProductGroup e mantém propriedades próprias distintas por versão', () => {
     const data = baseData();
     const second = createBlankVersion('Touring');
     data.versions = [data.versions[0], second];
     data.sharedFeatures.find((entry) => entry.name === 'Detecção de pedestres')!.value = 'Sim';
-    data.versions[0].features.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Dianteiros e traseiros';
-    data.versions[1].features.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Somente dianteiros';
+    data.sharedFeatures.find((entry) => entry.name === 'Vidros Elétricos')!.value = 'Dianteiros e traseiros';
+    data.versions[0].features.find((entry) => entry.name === 'Entrada USB')!.value = 'Duas portas USB-C';
+    data.versions[1].features.find((entry) => entry.name === 'Entrada USB')!.value = 'Uma porta USB-A';
 
     const result = generateSchema(data);
     const group = result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
     const vehicles = result.document['@graph'].filter((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'));
-    expect(group.additionalProperty).toEqual([
+    expect(group.additionalProperty).toEqual(expect.arrayContaining([
       { '@type': 'PropertyValue', name: 'Detecção de pedestres', value: 'Sim' },
-    ]);
-    expect((vehicles[0].additionalProperty as { name: string; value: string }[]).find((entry) => entry.name === 'Vidros Elétricos')?.value).toBe('Dianteiros e traseiros');
-    expect((vehicles[1].additionalProperty as { name: string; value: string }[]).find((entry) => entry.name === 'Vidros Elétricos')?.value).toBe('Somente dianteiros');
+      { '@type': 'PropertyValue', name: 'Vidros Elétricos', value: 'Dianteiros e traseiros' },
+    ]));
+    expect((vehicles[0].additionalProperty as { name: string; value: string }[]).find((entry) => entry.name === 'Entrada USB')?.value).toBe('Duas portas USB-C');
+    expect((vehicles[1].additionalProperty as { name: string; value: string }[]).find((entry) => entry.name === 'Entrada USB')?.value).toBe('Uma porta USB-A');
     expect(validateGraph(result.document).filter((entry) => entry.severity === 'error')).toHaveLength(0);
   });
 });
@@ -393,24 +398,86 @@ describe('medidas numéricas de consumo e emissões', () => {
 });
 
 describe('propriedades técnicas compartilhadas do modelo', () => {
-  it('herda os seis campos para cada Vehicle e permite substituição específica, sem propriedades duplicadas', () => {
+  it('serializa os seis campos no ProductGroup via additionalProperty e não os duplica nos Vehicle', () => {
     const data = baseData();
     const first = data.versions[0];
     const second = createBlankVersion('Touring');
+    first.configuration = 'Comfort'; second.configuration = 'Touring';
     data.versions = [first, second];
     data.sharedVehicleProperties = {
       fuelType: 'Flex', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática',
       numberOfDoors: '4', seatingCapacity: '5', numberOfAirbags: '6',
     };
-    first.fuelType = 'Híbrido'; first.numberOfAirbags = '8';
-
     const result = generateSchema(data);
     const vehicles = result.document['@graph'].filter((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'));
     const group = result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
-    expect(vehicles[0]).toMatchObject({ fuelType: 'Híbrido', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática', numberOfDoors: 4, seatingCapacity: 5, numberOfAirbags: 8 });
-    expect(vehicles[1]).toMatchObject({ fuelType: 'Flex', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática', numberOfDoors: 4, seatingCapacity: 5, numberOfAirbags: 6 });
-    expect(group).not.toHaveProperty('fuelType');
-    expect(group.variesBy).toContain('fuelType');
+    const properties = group.additionalProperty as { name: string; value: string | number }[];
+    const byName = Object.fromEntries(properties.map((property) => [property.name, property.value]));
+    expect(byName).toMatchObject({
+      fuelType: 'Flex', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática',
+      numberOfDoors: 4, seatingCapacity: 5, numberOfAirbags: 6,
+    });
+    for (const vehicle of vehicles) {
+      for (const field of ['fuelType', 'driveWheelConfiguration', 'vehicleTransmission', 'numberOfDoors', 'seatingCapacity', 'numberOfAirbags']) {
+        expect(vehicle).not.toHaveProperty(field);
+      }
+    }
+    expect(group.variesBy).not.toContain('fuelType');
     expect(validateGraph(result.document).filter((entry) => entry.severity === 'error')).toHaveLength(0);
+  });
+
+  it('mantém wheelbase e características compartilhadas no ProductGroup mesmo com uma única versão', () => {
+    const data = baseData();
+    data.modelYear = '2027';
+    data.sharedMeasurements.wheelbase = '2.700';
+    data.sharedVehicleProperties.numberOfDoors = '4';
+    const steering = data.sharedFeatures.find((feature) => feature.name === 'Direção')!;
+    steering.value = 'Elétrica';
+    const result = generateSchema(data);
+    const group = result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
+    const vehicle = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+    const properties = group.additionalProperty as { name: string; value: string | number; unitText?: string }[];
+    expect(properties.find((property) => property.name === 'wheelbase')).toMatchObject({ value: 2700, unitCode: 'MMT' });
+    expect(properties.find((property) => property.name === 'Direção')?.value).toBe('Elétrica');
+    expect(properties.find((property) => property.name === 'numberOfDoors')?.value).toBe(4);
+    expect(group.hasVariant).toHaveLength(1);
+    expect(vehicle).not.toHaveProperty('wheelbase');
+    expect(vehicle).not.toHaveProperty('numberOfDoors');
+    expect(vehicle).not.toHaveProperty('vehicleModelDate');
+  });
+
+  it('cria ProductGroup para dimensões comuns de um modelo com uma versão sem duplicá-las no Vehicle', () => {
+    const data = baseData();
+    data.sharedMeasurements.length = '4.300';
+    const result = generateSchema(data);
+    const group = result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
+    const vehicle = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+    expect((group.length as { value: number; unitCode: string })).toMatchObject({ value: 4300, unitCode: 'MMT' });
+    expect(vehicle).not.toHaveProperty('length');
+  });
+
+  it('omite propriedades opcionais vazias em vez de herdar ou criar campos derivados', () => {
+    const data = baseData();
+    const version = data.versions[0];
+    version.configuration = '';
+    version.modelDate = '';
+    version.bodyType = '';
+    version.measurements.length = '';
+    const result = generateSchema(data);
+    const vehicle = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+    for (const field of ['vehicleConfiguration', 'vehicleModelDate', 'bodyType', 'length', 'width', 'height', 'wheelbase', 'fuelConsumption', 'emissionsCO2', 'fuelType', 'numberOfDoors']) {
+      expect(vehicle).not.toHaveProperty(field);
+    }
+  });
+
+  it('bloqueia exportação enquanto existir conflito de migração sem decisão do usuário', () => {
+    const data = baseData();
+    data.migrationConflicts = [{
+      id: 'conflict-1', target: 'vehicleProperty', key: 'numberOfDoors', label: 'Número de portas',
+      candidates: [{ versionId: data.versions[0].id, versionName: data.versions[0].name, value: '4' }],
+    }];
+    const result = generateSchema(data);
+    expect(result.canExport).toBe(false);
+    expect(result.issues.some((entry) => entry.code === 'migration-conflict')).toBe(true);
   });
 });

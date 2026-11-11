@@ -64,7 +64,29 @@
 ### Propriedades pré-carregadas comuns do modelo — Concluído
 
 - [x] Na seção “Modelo e dados compartilhados”, pré-carregar estes campos Schema.org: combustível `fuelType`; configuração das rodas motrizes `driveWheelConfiguration`; transmissão do veículo `vehicleTransmission`; número de portas `numberOfDoors`; número de lugares `seatingCapacity`; número de airbags `numberOfAirbags`.
-- [x] Valores comuns serão aplicados às entidades `Vehicle` correspondentes a todas as versões. Valores preenchidos especificamente numa versão substituirão o valor comum apenas nessa versão; não haverá duplicação de propriedades e campos vazios não serão emitidos.
-- [x] Os valores de `numberOfDoors`, `seatingCapacity` e `numberOfAirbags` serão serializados como números JSON quando numéricos; os demais permanecerão texto conforme o tipo Schema.org.
+- [x] Marco histórico da atualização anterior: valores comuns eram aplicados às entidades `Vehicle` correspondentes. Com a solicitação posterior desta mesma data, este comportamento foi substituído: agora os seis campos são representados no `ProductGroup.additionalProperty`, sem emissão por versão.
+- [x] Os valores de `numberOfDoors`, `seatingCapacity` e `numberOfAirbags` continuam serializados como números JSON quando numéricos, agora como `PropertyValue.value`; os demais permanecem texto conforme o tipo Schema.org.
 - [x] Manter compatibilidade com projetos locais e backups já existentes: migrar valores pontuais antigos e campos comuns ausentes sem apagar dados, aceitar vírgula decimal legada e preservar valores que precisem de correção para serem mostrados pela validação.
 - [x] A versão de backup exportada/importada identificará a nova estrutura, continuará aceitando arquivos v1 e migrará seus dados para o formato atual sem perda.
+
+
+## Atualização solicitada — dados comuns em ProductGroup, omissão de vazios e nomes técnicos (11/11/2026)
+
+### Campos opcionais vazios e ausência de herança indesejada — Concluído
+
+- [x] Ao apagar um valor opcional de versão, a propriedade correspondente deve desaparecer da entidade `Vehicle`; não deve reaparecer por herança automática de um valor comum preenchido. O comportamento vale para qualquer propriedade opcional de veículo. Dados comuns que permanecem preenchidos podem aparecer somente no nível comum adequado, conforme os critérios abaixo.
+- [x] Campos opcionais realmente vazios não devem deixar texto, `null`, `undefined`, objeto vazio ou propriedade redundante no JSON-LD; campos obrigatórios e seus bloqueios de validação permanecem inalterados.
+
+### Propriedades do modelo compartilhadas apenas no ProductGroup — Concluído
+
+- [x] Incluir no nível `ProductGroup` a medida comum `wheelbase` (Entre-eixos) e não a duplicar em cada `Vehicle`.
+- [x] Mover para as propriedades comuns do modelo e para o `ProductGroup`, sem emissão por versão: `additionalProperty` Direção; Assistente de Partida em Aclive; Chave com Sensor de Aproximação; Controlador de Limite de Velocidade; Easy Entry; Easy Start; Sistema de Luz Siga-me; Sistema de Luz Leve-me; Travas Elétricas; Vidros Elétricos; Rádio AM/FM; Android Auto; Apple CarPlay; Wi-Fi embarcado; OnStar; Alerta de Frenagem de Emergência; ISOFIX; TOP TETHER; ABS; EBD; Assistência de Frenagem de Urgência.
+- [x] Manter no nível comum do modelo e retirar da seção/saída individual das versões os campos já adicionados: combustível `fuelType`; configuração das rodas motrizes `driveWheelConfiguration`; transmissão `vehicleTransmission`; número de portas `numberOfDoors`; número de lugares `seatingCapacity`; número de airbags `numberOfAirbags`.
+- [x] Respeitar a estrutura acordada com a usuária: como essas propriedades automotivas são definidas para `Vehicle` e não como propriedades diretas de `ProductGroup`, serializá-las no `ProductGroup.additionalProperty` como `PropertyValue`, identificando o termo técnico no nome; `wheelbase` inclui valor numérico e unidade `MMT`; portas, lugares e airbags são números JSON quando numéricos. Não emitir os termos correspondentes nos nós `Vehicle`.
+- [x] Ao migrar dados já salvos/importados, manter valores comuns existentes. Valores legados só são migrados automaticamente quando todas as versões têm o mesmo valor não vazio, com comparação numérica normalizada para campos numéricos. Se divergirem ou algumas versões estiverem sem valor, preservar os candidatos e apresentar conflito visível para escolha, sem descartar nem publicar os candidatos por versão.
+- [x] Migrar automaticamente os valores antigos de `wheelbase` por versão para o campo comum quando forem unânimes; preservar e expor divergências/parcialidades como conflito. Importação de backups v1/v2 e abertura do armazenamento local permanecem funcionais e idempotentes após a atualização do formato v3.
+
+### Nomes amigáveis e identificadores técnicos no formulário — Concluído
+
+- [x] Exibir para os campos do gerador o rótulo amigável em português junto do termo/caminho técnico Schema.org correspondente, por exemplo `Carroceria · bodyType`; não substituir o nome amigável pelo código técnico.
+- [x] Para os itens genéricos do catálogo, indicar que são `additionalProperty` e que o texto do recurso compõe `PropertyValue.name`, sem apresentar esse caminho genérico como um termo Schema.org específico.

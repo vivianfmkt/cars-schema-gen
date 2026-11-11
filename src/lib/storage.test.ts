@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createProject } from './ids';
+import { createBlankVersion, createProject } from './ids';
 import { loadProjects, makeHtmlDocument, makeProjectArchive, parseProjectArchive, saveProjects } from './storage';
 import { SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG } from './feature-catalog';
 
@@ -27,7 +27,7 @@ describe('persistência e exportação', () => {
   it('exporta e importa arquivo de backup versionado com vários projetos', () => {
     const projects = [createProject('Um'), createProject('Dois')];
     const archive = makeProjectArchive(projects);
-    expect(archive.version).toBe(2);
+    expect(archive.version).toBe(3);
     expect(parseProjectArchive(JSON.stringify(archive))).toHaveLength(2);
     expect(() => parseProjectArchive('{"projects":[]}')).toThrow(/Formato/);
   });
@@ -72,7 +72,7 @@ describe('validação de backups', () => {
     expect(migrated.data.versions[0].features).toHaveLength(VERSION_FEATURE_CATALOG.length + 1);
     expect(migrated.data.sharedFeatures.find((entry) => entry.name === 'Acabamento especial')?.value).toBe('Pintura fosca');
     expect(migrated.data.versions[0].features.find((entry) => entry.name === 'Som premium')?.value).toBe('10 alto-falantes');
-    expect(migrated.data.versions[0].features.find((entry) => entry.name === 'Entrada USB')?.value).toBe('');
+    expect(migrated.data.sharedFeatures.find((entry) => entry.name === 'Android Auto')?.value).toBe('');
     expect(migrated.data.sharedVehicleProperties.fuelType).toBe('');
     expect(migrated.data.versions[0].consumption.urbanGasoline.value).toBe('11.5');
     expect(migrated.data.versions[0].consumption.highwayGasoline).toEqual({ value: '', minValue: '11.2', maxValue: '11.5' });
@@ -93,5 +93,82 @@ describe('validação de backups', () => {
     expect(loaded.data.versions[0].features).toHaveLength(VERSION_FEATURE_CATALOG.length);
     expect(new Set(loaded.data.versions[0].features.map((entry) => entry.id)).size).toBe(VERSION_FEATURE_CATALOG.length);
     expect(loaded.data.versions[0].emissionsCO2.value).toBe('99.4');
+  });
+
+  it('migra propriedades comuns antigas, remove-as das versões e sinaliza apenas divergências', () => {
+    const project = createProject('Legado v2');
+    const first = project.data.versions[0] as unknown as Record<string, unknown>;
+    const firstMeasurements = first.measurements as Record<string, unknown>;
+    first.fuelType = 'Flex'; first.driveWheelConfiguration = 'Dianteira'; first.transmission = 'Automática';
+    first.numberOfDoors = '4'; first.seatingCapacity = '5'; first.numberOfAirbags = '6';
+    firstMeasurements.wheelbase = '2.700';
+    first.features = [
+      { id: 'legacy-steering-1', name: 'Direção', value: 'Elétrica' },
+      { id: 'legacy-android-1', name: 'Android Auto', value: 'Sim' },
+    ];
+    const second = createBlankVersion('Versão B') as unknown as Record<string, unknown>;
+    const secondMeasurements = second.measurements as Record<string, unknown>;
+    second.fuelType = 'Flex'; second.driveWheelConfiguration = 'Dianteira'; second.transmission = 'Automática';
+    second.numberOfDoors = '5'; second.seatingCapacity = '5'; second.numberOfAirbags = '6';
+    secondMeasurements.wheelbase = '2.700';
+    second.features = [
+      { id: 'legacy-steering-2', name: 'Direção', value: 'Elétrica' },
+      { id: 'legacy-android-2', name: 'Android Auto', value: 'Não' },
+    ];
+    project.data.versions.push(second as unknown as typeof project.data.versions[number]);
+    const archive = { format: 'pdp-schema-projects' as const, version: 2 as const, projects: [project] };
+    const migrated = parseProjectArchive(JSON.stringify(archive))[0];
+
+    expect(migrated.data.sharedVehicleProperties.fuelType).toBe('Flex');
+    expect(migrated.data.sharedVehicleProperties.driveWheelConfiguration).toBe('Dianteira');
+    expect(migrated.data.sharedVehicleProperties.vehicleTransmission).toBe('Automática');
+    expect(migrated.data.sharedVehicleProperties.numberOfDoors).toBe('');
+    expect(migrated.data.sharedVehicleProperties.seatingCapacity).toBe('5');
+    expect(migrated.data.sharedVehicleProperties.numberOfAirbags).toBe('6');
+    expect(migrated.data.sharedMeasurements.wheelbase).toBe('2.700');
+    expect(migrated.data.sharedFeatures.find((entry) => entry.name === 'Direção')?.value).toBe('Elétrica');
+    expect(migrated.data.sharedFeatures.find((entry) => entry.name === 'Android Auto')?.value).toBe('');
+    expect(migrated.data.versions.every((version) => version.features.every((feature) => !['Direção', 'Android Auto'].includes(feature.name)))).toBe(true);
+    expect(migrated.data.versions[0].measurements).not.toHaveProperty('wheelbase');
+    expect(migrated.data.versions[0]).not.toHaveProperty('fuelType');
+    expect(migrated.data.versions[0]).not.toHaveProperty('numberOfDoors');
+    expect(migrated.data.migrationConflicts.map((conflict) => `${conflict.target}:${conflict.key}`).sort()).toEqual(['feature:android auto', 'vehicleProperty:numberOfDoors']);
+    vi.stubGlobal('localStorage', localStorageStub);
+    memory.set('pdp-schema-projects-v1', JSON.stringify([project]));
+    const openedOnce = loadProjects()[0];
+    expect(openedOnce.data.migrationConflicts).toHaveLength(2);
+    expect(saveProjects([openedOnce]).ok).toBe(true);
+    const openedTwice = loadProjects()[0];
+    expect(openedTwice.data).toEqual(openedOnce.data);
+  });
+
+  it('não promove automaticamente valores legados parciais e trata números equivalentes como consenso', () => {
+    const project = createProject('Legado com campos parciais');
+    const first = project.data.versions[0] as unknown as Record<string, unknown>;
+    const firstMeasurements = first.measurements as Record<string, unknown>;
+    first.fuelType = 'Flex'; first.numberOfDoors = '4'; firstMeasurements.wheelbase = '2.700';
+    first.features = [{ id: 'legacy-direction', name: 'Direção', value: 'Elétrica' }];
+    const second = createBlankVersion('Versão B') as unknown as Record<string, unknown>;
+    const secondMeasurements = second.measurements as Record<string, unknown>;
+    second.fuelType = ''; second.numberOfDoors = '4.0'; secondMeasurements.wheelbase = '2700';
+    project.data.versions.push(second as unknown as typeof project.data.versions[number]);
+    const archive = { format: 'pdp-schema-projects' as const, version: 2 as const, projects: [project] };
+    const migrated = parseProjectArchive(JSON.stringify(archive))[0];
+
+    expect(migrated.data.sharedVehicleProperties.fuelType).toBe('');
+    expect(migrated.data.sharedVehicleProperties.numberOfDoors).toBe('4');
+    expect(migrated.data.sharedMeasurements.wheelbase).toBe('2.700');
+    expect(migrated.data.sharedFeatures.find((entry) => entry.name === 'Direção')?.value).toBe('');
+    expect(migrated.data.migrationConflicts.map((conflict) => `${conflict.target}:${conflict.key}`).sort()).toEqual([
+      'feature:direcao', 'vehicleProperty:fuelType',
+    ]);
+    expect(migrated.data.migrationConflicts.find((conflict) => conflict.key === 'fuelType')?.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ versionName: 'Versão B', value: '' }),
+    ]));
+    const importedAgain = parseProjectArchive(JSON.stringify(makeProjectArchive([migrated])))[0];
+    expect(importedAgain.data).toEqual(migrated.data);
+    expect(importedAgain.data.migrationConflicts).toEqual(migrated.data.migrationConflicts);
+    expect(importedAgain.data.sharedFeatures.filter((entry) => entry.name === 'Direção')).toHaveLength(1);
+    expect(importedAgain.data.versions.every((version) => !version.features.some((feature) => feature.name === 'Direção'))).toBe(true);
   });
 });

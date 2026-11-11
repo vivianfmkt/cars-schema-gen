@@ -1,4 +1,4 @@
-import type { GenerationResult, ImageDraft, JsonLdDocument, NumericMeasureDraft, OfferDraft, PdpFormData, SchemaEntity, ValidationIssue, VehicleVersion, VideoDraft } from '../model/types';
+import type { GenerationResult, ImageDraft, JsonLdDocument, NumericMeasureDraft, OfferDraft, PdpFormData, SchemaEntity, ValidationIssue, VehicleVersion, VersionMeasurements, VideoDraft } from '../model/types';
 import { canonicalPageUrl, cleanText, isHttpUrl, parseDecimalNumber, parseLocalizedNumber, reference, slugify } from './ids';
 import { featureNameKey } from './feature-catalog';
 import { validateGraph, validateProject } from './validation';
@@ -58,6 +58,16 @@ function quantifiedProperty(name: string, value: string, unitText: string): Reco
   return n && number !== undefined ? { '@type': 'PropertyValue', name: n, value: number, unitText } : undefined;
 }
 
+function numericProperty(name: string, value: string, unitText?: string): Record<string, unknown> | undefined {
+  const n = trim(name); const number = parseLocalizedNumber(value);
+  return n && number !== undefined ? compact({ '@type': 'PropertyValue', name: n, value: number, unitText }) : undefined;
+}
+
+function unitCodeProperty(name: string, value: string, unitCode: string): Record<string, unknown> | undefined {
+  const n = trim(name); const number = parseLocalizedNumber(value);
+  return n && number !== undefined ? { '@type': 'PropertyValue', name: n, value: number, unitCode } : undefined;
+}
+
 function uniqueStrings(values: string[]): string[] {
   const seen = new Set<string>();
   return values.map(trim).filter(Boolean).filter((value) => {
@@ -107,8 +117,8 @@ function deduplicatePropertyValues(properties: Array<Record<string, unknown> | u
   return [...byName.values()];
 }
 
-function measurement(data: PdpFormData, version: VehicleVersion, key: keyof PdpFormData['sharedMeasurements'], unit: { unitCode: string }): Record<string, unknown> | undefined {
-  return quantitative(version.measurements[key] || data.sharedMeasurements[key], unit);
+function measurement(version: VehicleVersion, key: keyof VersionMeasurements, unit: { unitCode: string }): Record<string, unknown> | undefined {
+  return quantitative(version.measurements[key], unit);
 }
 
 function validImages(images: ImageDraft[], base: string): { items: ImageDraft[]; idsByUrl: Map<string, string>; scopesByUrl: Map<string, Set<string>> } {
@@ -158,21 +168,15 @@ function versionId(base: string, version: VehicleVersion): string {
   return baseId(base, `version-${slugify(version.name || version.configuration)}-${version.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'item'}`);
 }
 
-function calculateVariesBy(data: PdpFormData, versions: VehicleVersion[]): string[] {
+function calculateVariesBy(versions: VehicleVersion[]): string[] {
   const candidates: [string, string, (version: VehicleVersion) => string][] = [
     ['configuration', 'vehicleConfiguration', (version) => trim(version.configuration)],
-    ['fuelType', 'fuelType', (version) => trim(version.fuelType) || trim(data.sharedVehicleProperties.fuelType)],
-    ['driveWheelConfiguration', 'driveWheelConfiguration', (version) => trim(version.driveWheelConfiguration) || trim(data.sharedVehicleProperties.driveWheelConfiguration)],
-    ['transmission', 'vehicleTransmission', (version) => trim(version.transmission) || trim(data.sharedVehicleProperties.vehicleTransmission)],
-    ['numberOfDoors', 'numberOfDoors', (version) => trim(version.numberOfDoors) || trim(data.sharedVehicleProperties.numberOfDoors)],
-    ['seatingCapacity', 'seatingCapacity', (version) => trim(version.seatingCapacity) || trim(data.sharedVehicleProperties.seatingCapacity)],
-    ['numberOfAirbags', 'numberOfAirbags', (version) => trim(version.numberOfAirbags) || trim(data.sharedVehicleProperties.numberOfAirbags)],
     ['engineType', 'engineType', (version) => trim(version.engineType)],
   ];
   const result = candidates.filter(([, , value]) => new Set(versions.map(value).filter(Boolean)).size > 1).map(([, property]) => property);
   const colors = versions.map((version) => uniqueStrings(version.exteriorColors).join('|'));
   if (new Set(colors).size > 1) result.push('color');
-  return result.length ? result : ['vehicleConfiguration'];
+  return result.length ? result : ['name'];
 }
 
 function makeOfferNodes(offers: OfferDraft[], base: string, knownOrganizationIds: Map<string, string>, productGroupId: string | undefined, versionIds: Map<string, string>, entity: SchemaEntity[], issues: ValidationIssue[]) {
@@ -242,7 +246,29 @@ export function generateSchema(data: PdpFormData): GenerationResult {
 
   const validVersions = data.versions.filter((version) => trim(version.name));
   const versionIds = new Map(validVersions.map((version) => [version.id, versionId(base, version)]));
-  const groupId = validVersions.length > 1 ? baseId(base, 'productgroup') : undefined;
+  const sharedProperties = deduplicatePropertyValues([
+    ...(propertyList(data.sharedFeatures) ?? []),
+    propertyValue('vehicleModelDate', data.modelYear), propertyValue('bodyType', data.bodyType),
+    propertyValue('fuelType', data.sharedVehicleProperties.fuelType),
+    propertyValue('driveWheelConfiguration', data.sharedVehicleProperties.driveWheelConfiguration),
+    propertyValue('vehicleTransmission', data.sharedVehicleProperties.vehicleTransmission),
+    numericProperty('numberOfDoors', data.sharedVehicleProperties.numberOfDoors),
+    numericProperty('seatingCapacity', data.sharedVehicleProperties.seatingCapacity),
+    numericProperty('numberOfAirbags', data.sharedVehicleProperties.numberOfAirbags),
+    unitCodeProperty('wheelbase', data.sharedMeasurements.wheelbase, 'MMT'),
+    quantifiedProperty('cargoVolume', data.sharedMeasurements.cargoVolume, 'L'),
+    quantifiedProperty('fuelCapacity', data.sharedMeasurements.fuelCapacity, 'L'),
+    data.commonInteriorColors.length ? propertyValue('vehicleInteriorColor', uniqueStrings(data.commonInteriorColors).join(', ')) : undefined,
+  ]);
+  const commonExteriorColors = uniqueStrings(data.commonExteriorColors);
+  const sharedDimensions = {
+    length: quantitative(data.sharedMeasurements.length, { unitCode: 'MMT' }),
+    width: quantitative(data.sharedMeasurements.width, { unitCode: 'MMT' }),
+    height: quantitative(data.sharedMeasurements.height, { unitCode: 'MMT' }),
+  };
+  const hasSharedGroupData = sharedProperties.length > 0 || commonExteriorColors.length > 0 || Object.values(sharedDimensions).some(Boolean)
+    || Boolean(trim(data.category) || trim(data.modelDescription));
+  const groupId = validVersions.length > 1 || (validVersions.length === 1 && hasSharedGroupData) ? baseId(base, 'productgroup') : undefined;
   const itemListId = validVersions.length > 1 ? baseId(base, 'versions') : undefined;
   const pageId = baseId(base, 'webpage');
   const faqItems = data.faqs.filter((faq) => trim(faq.question) && trim(faq.answer));
@@ -288,7 +314,6 @@ export function generateSchema(data: PdpFormData): GenerationResult {
   }) as SchemaEntity;
   graph.push(pageEntity);
 
-  const sharedProperties = propertyList(data.sharedFeatures) ?? [];
   const allImageRefs = imageNodes.map((image) => reference(imageUrlId(image.contentUrl, imageIdByUrl)!));
   const groupName = trim(data.modelName);
   if (groupId && groupName) {
@@ -296,7 +321,10 @@ export function generateSchema(data: PdpFormData): GenerationResult {
       '@type': 'ProductGroup', '@id': groupId, name: groupName, brand: brand ? reference(brandId) : undefined,
       manufacturer: manufacturer ? reference(manufacturerId) : undefined, url: base,
       category: trim(data.category), description: trim(data.modelDescription), image: allImageRefs.length ? allImageRefs : undefined,
-      variesBy: calculateVariesBy(data, validVersions), additionalProperty: sharedProperties.length ? sharedProperties : undefined,
+      color: commonExteriorColors.length ? commonExteriorColors : undefined,
+      ...sharedDimensions,
+      variesBy: validVersions.length > 1 ? calculateVariesBy(validVersions) : undefined,
+      additionalProperty: sharedProperties.length ? sharedProperties : undefined,
       hasVariant: productRefs,
     }) as SchemaEntity);
   }
@@ -310,10 +338,10 @@ export function generateSchema(data: PdpFormData): GenerationResult {
   if (groupNode && generalOfferRefs.length) groupNode.offers = generalOfferRefs;
   for (const version of validVersions) {
     const id = versionIds.get(version.id)!;
-    const modelYear = trim(version.modelDate) || trim(data.modelYear);
+    const modelYear = trim(version.modelDate);
     const productName = [groupName, trim(version.name), modelYear].filter(Boolean).join(' ');
-    const colors = uniqueStrings([...data.commonExteriorColors, ...version.exteriorColors]);
-    const interiorColors = uniqueStrings([...data.commonInteriorColors, ...version.interiorColors]);
+    const colors = uniqueStrings(version.exteriorColors);
+    const interiorColors = uniqueStrings(version.interiorColors);
     const versionImages = imageNodes.filter((image) => {
       const scopes = imageScopesByUrl.get(new URL(image.contentUrl).toString());
       return scopes?.has('page') || scopes?.has(version.id);
@@ -347,7 +375,6 @@ export function generateSchema(data: PdpFormData): GenerationResult {
     const pageOfferRefs = groupId ? [] : offerRefsByScope.get('page') ?? [];
     const specificOfferRefs = offerRefsByScope.get(version.id) ?? [];
     const offers = [...pageOfferRefs, ...specificOfferRefs];
-    const sharedVehicle = data.sharedVehicleProperties;
     const node = compact({
       '@type': ['Product', 'Vehicle'], '@id': id, name: productName, model: groupName,
       vehicleModelDate: modelYear, brand: brand ? reference(brandId) : undefined,
@@ -355,22 +382,14 @@ export function generateSchema(data: PdpFormData): GenerationResult {
       isVariantOf: groupId ? reference(groupId) : undefined, mainEntityOfPage: reference(pageId),
       image: versionImages.length ? versionImages : undefined, associatedMedia: versionVideos.length ? versionVideos : undefined,
       color: colors.length ? colors : undefined, vehicleInteriorColor: interiorColors.length ? interiorColors : undefined,
-      bodyType: trim(version.bodyType) || trim(data.bodyType), vehicleConfiguration: trim(version.configuration) || trim(version.name),
-      category: trim(data.category), description: trim(data.modelDescription),
-      fuelType: trim(version.fuelType) || trim(sharedVehicle.fuelType),
-      driveWheelConfiguration: trim(version.driveWheelConfiguration) || trim(sharedVehicle.driveWheelConfiguration),
-      vehicleTransmission: trim(version.transmission) || trim(sharedVehicle.vehicleTransmission),
-      numberOfDoors: parseLocalizedNumber(trim(version.numberOfDoors) || trim(sharedVehicle.numberOfDoors)),
-      seatingCapacity: parseLocalizedNumber(trim(version.seatingCapacity) || trim(sharedVehicle.seatingCapacity)),
-      numberOfAirbags: parseLocalizedNumber(trim(version.numberOfAirbags) || trim(sharedVehicle.numberOfAirbags)),
-      cargoVolume: measurement(data, version, 'cargoVolume', { unitCode: 'LTR' }),
-      fuelCapacity: measurement(data, version, 'fuelCapacity', { unitCode: 'LTR' }),
+      bodyType: trim(version.bodyType), vehicleConfiguration: trim(version.configuration),
+      cargoVolume: measurement(version, 'cargoVolume', { unitCode: 'LTR' }),
+      fuelCapacity: measurement(version, 'fuelCapacity', { unitCode: 'LTR' }),
       fuelConsumption: consumption.length ? consumption : undefined,
       emissionsCO2: emissionsValue(version.emissionsCO2),
-      length: measurement(data, version, 'length', { unitCode: 'MMT' }),
-      width: measurement(data, version, 'width', { unitCode: 'MMT' }),
-      height: measurement(data, version, 'height', { unitCode: 'MMT' }),
-      wheelbase: measurement(data, version, 'wheelbase', { unitCode: 'MMT' }),
+      length: measurement(version, 'length', { unitCode: 'MMT' }),
+      width: measurement(version, 'width', { unitCode: 'MMT' }),
+      height: measurement(version, 'height', { unitCode: 'MMT' }),
       torque: quantitative(version.torque, { unitText: 'kgfm' }),
       vehicleEngine: Object.keys(engine).length > 1 ? engine : undefined,
       additionalProperty: addProperties.length ? addProperties : undefined,
@@ -420,7 +439,7 @@ export function generateSchema(data: PdpFormData): GenerationResult {
       creditText: trim(image.creditText), copyrightNotice: trim(image.copyrightNotice),
       license: trim(image.license), acquireLicensePage: isHttpUrl(image.acquireLicensePage) ? trim(image.acquireLicensePage) : undefined,
       creator: organization ? reference(organizationId) : undefined, copyrightHolder: organization ? reference(organizationId) : undefined,
-      inLanguage: trim(image.inLanguage) || trim(data.language),
+      inLanguage: trim(image.inLanguage),
       additionalProperty: propertyValue('Texto alternativo (alt)', image.alt) ? [propertyValue('Texto alternativo (alt)', image.alt)] : undefined,
       isPartOf: reference(pageId), about: inScope ? reference(inScope) : undefined,
       representativeOfPage: image.representativeOfPage || undefined,

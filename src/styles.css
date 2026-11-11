@@ -347,3 +347,27 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Identificadores técnicos visíveis sem competir com os nomes dos campos. */
+.field__schema-property, .feature-catalog__schema-property {
+  margin-left: 6px; color: #7d888b; font-family: var(--mono); font-size: 8px; font-weight: 400; letter-spacing: 0; overflow-wrap: anywhere;
+}
+.feature-catalog__schema-property { display: block; width: fit-content; margin: 2px 0 0; color: #697477; }
+.numeric-measure__title .field__schema-property { margin-left: 8px; }
+.migration-conflicts { margin: 0 0 15px; padding: 12px; border: 1px solid #8e6930; border-radius: 7px; background: #302819; }
+.migration-conflicts__heading { display: flex; flex-direction: column; gap: 4px; margin-bottom: 9px; color: #ead6a7; font-size: 10px; line-height: 1.5; }
+.migration-conflicts__heading span { color: #a99b7b; font-size: 9px; }
+.migration-conflict { padding: 8px 0; border-top: 1px solid #51442e; }
+.migration-conflict__title { margin-bottom: 6px; color: #f4e6c8; font-size: 10px; font-weight: 600; }
+.migration-conflict__options { display: flex; flex-wrap: wrap; gap: 6px; }
+.migration-conflict__option { display: flex; min-width: 130px; max-width: 100%; flex-direction: column; gap: 2px; padding: 7px 9px; color: #d8d0bd; border: 1px solid #625438; border-radius: 5px; background: #24221d; cursor: pointer; text-align: left; }
+.migration-conflict__option:hover { border-color: var(--accent); background: #352d1e; }
+.migration-conflict__option span { color: #9d9278; font-size: 8px; }
+.migration-conflict__option strong { overflow-wrap: anywhere; font-size: 9px; font-weight: 600; }
+.migration-conflict__option--empty { border-style: dashed; }
+@media (max-width: 620px) {
+  .migration-conflict__options { display: grid; grid-template-columns: 1fr; }
+  .migration-conflict__option { min-width: 0; }
+  .field__schema-property { display: block; margin: 2px 0 0; }
+}

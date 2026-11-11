@@ -1,4 +1,4 @@
-import type { BreadcrumbEntry, ConsumptionValues, FaqEntry, FeatureEntry, ImageDraft, NumericMeasureDraft, OfferDraft, PdpFormData, ProjectRecord, SharedVehicleProperties, VehicleVersion, VideoDraft } from '../model/types';
+import type { BreadcrumbEntry, ConsumptionValues, FaqEntry, FeatureEntry, ImageDraft, NumericMeasureDraft, OfferDraft, PdpFormData, ProjectRecord, SharedVehicleProperties, VehicleVersion, VersionMeasurements, VideoDraft } from '../model/types';
 import { featureNameKey, SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG, type FeatureDefinition } from './feature-catalog';
 
 export function createId(): string {
@@ -112,6 +112,10 @@ export function createBlankMeasurements() {
   return { length: '', width: '', height: '', wheelbase: '', cargoVolume: '', fuelCapacity: '' };
 }
 
+export function createBlankVersionMeasurements(): VersionMeasurements {
+  return { length: '', width: '', height: '', cargoVolume: '', fuelCapacity: '' };
+}
+
 export function createBlankNumericMeasure(): NumericMeasureDraft { return { value: '', minValue: '', maxValue: '' }; }
 
 export function createBlankConsumptionValues(): ConsumptionValues {
@@ -139,10 +143,16 @@ function addMissingFeatureEntries(entries: FeatureEntry[], catalog: readonly Fea
 export function ensureFeatureCatalog(data: PdpFormData): PdpFormData {
   return {
     ...data,
+    migrationConflicts: data.migrationConflicts ?? [],
     sharedVehicleProperties: { ...createBlankSharedVehicleProperties(), ...data.sharedVehicleProperties },
     sharedFeatures: addMissingFeatureEntries(data.sharedFeatures, SHARED_FEATURE_CATALOG),
     versions: data.versions.map((version) => ({
       ...version,
+      measurements: {
+        length: version.measurements?.length ?? '', width: version.measurements?.width ?? '',
+        height: version.measurements?.height ?? '', cargoVolume: version.measurements?.cargoVolume ?? '',
+        fuelCapacity: version.measurements?.fuelCapacity ?? '',
+      },
       consumption: {
         urbanGasoline: normalizeNumericMeasure(version.consumption?.urbanGasoline),
         highwayGasoline: normalizeNumericMeasure(version.consumption?.highwayGasoline),
@@ -157,9 +167,8 @@ export function ensureFeatureCatalog(data: PdpFormData): PdpFormData {
 
 export function createBlankVersion(name = ''): VehicleVersion {
   return {
-    id: createId(), name, configuration: '', modelDate: '', bodyType: '', fuelType: '', driveWheelConfiguration: '',
-    transmission: '', numberOfDoors: '', seatingCapacity: '', numberOfAirbags: '', exteriorColors: [], interiorColors: [],
-    measurements: createBlankMeasurements(), consumption: createBlankConsumptionValues(),
+    id: createId(), name, configuration: '', modelDate: '', bodyType: '', exteriorColors: [], interiorColors: [],
+    measurements: createBlankVersionMeasurements(), consumption: createBlankConsumptionValues(),
     emissionsCO2: createBlankNumericMeasure(), engineType: '', numberOfCylinders: '', engineDisplacement: '', powerOutput: '',
     powerGasoline: '', powerEthanol: '', torque: '', torqueGasoline: '', torqueEthanol: '', features: createFeatureEntries(VERSION_FEATURE_CATALOG),
   };
@@ -190,7 +199,7 @@ export function createBlankData(): PdpFormData {
     manufacturer: { name: '', url: '', email: '', telephone: '', logoUrl: '', sameAs: [] },
     brand: { name: '', url: '', sameAs: [] },
     modelName: '', modelYear: '', category: '', bodyType: '', modelDescription: '',
-    commonExteriorColors: [], commonInteriorColors: [], sharedMeasurements: createBlankMeasurements(), sharedVehicleProperties: createBlankSharedVehicleProperties(), sharedFeatures: createFeatureEntries(SHARED_FEATURE_CATALOG),
+    commonExteriorColors: [], commonInteriorColors: [], sharedMeasurements: createBlankMeasurements(), sharedVehicleProperties: createBlankSharedVehicleProperties(), sharedFeatures: createFeatureEntries(SHARED_FEATURE_CATALOG), migrationConflicts: [],
     versions: [createBlankVersion()], offers: [], breadcrumbs: [], faqs: [], images: [], videos: [],
   };
 }

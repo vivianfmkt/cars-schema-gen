@@ -44,14 +44,14 @@ function ProfileFields({ title, profile, onChange, kind }: {
   return <div className="profile-block">
     <div className="profile-block__heading"><h3>{title}</h3><span className="micro-label">{isOrganization ? 'ORGANIZATION' : 'BRAND'}</span></div>
     <FieldRow>
-      <Field label="Nome" value={profile.name} onChange={(name) => onChange({ name })} placeholder="Nome oficial" />
-      <Field label="URL" value={profile.url} onChange={(url) => onChange({ url })} type="url" placeholder="https://…" />
+      <Field label="Nome" schemaProperty="name" value={profile.name} onChange={(name) => onChange({ name })} placeholder="Nome oficial" />
+      <Field label="URL" schemaProperty="url" value={profile.url} onChange={(url) => onChange({ url })} type="url" placeholder="https://…" />
       {isOrganization && <>
-        <Field label="E-mail" value={(profile as OrganizationProfile).email} onChange={(email) => onChange({ email })} type="email" />
-        <Field label="Telefone" value={(profile as OrganizationProfile).telephone} onChange={(telephone) => onChange({ telephone })} type="tel" />
-        <Field label="URL do logotipo" value={(profile as OrganizationProfile).logoUrl} onChange={(logoUrl) => onChange({ logoUrl })} type="url" placeholder="https://…" />
+        <Field label="E-mail" schemaProperty="email" value={(profile as OrganizationProfile).email} onChange={(email) => onChange({ email })} type="email" />
+        <Field label="Telefone" schemaProperty="telephone" value={(profile as OrganizationProfile).telephone} onChange={(telephone) => onChange({ telephone })} type="tel" />
+        <Field label="URL do logotipo" schemaProperty="logo" value={(profile as OrganizationProfile).logoUrl} onChange={(logoUrl) => onChange({ logoUrl })} type="url" placeholder="https://…" />
       </>}
-      <TagList label="Links oficiais (sameAs)" items={profile.sameAs} onChange={(sameAs) => onChange({ sameAs })} placeholder="URL de perfil oficial" wide />
+      <TagList label="Links oficiais" schemaProperty="sameAs" items={profile.sameAs} onChange={(sameAs) => onChange({ sameAs })} placeholder="URL de perfil oficial" wide />
     </FieldRow>
   </div>;
 }
@@ -73,12 +73,12 @@ function PageSection({ data, onChange }: { data: PdpFormData; onChange(data: Pdp
   const patch = (field: keyof PdpFormData, value: string) => onChange({ ...data, [field]: value });
   return <SectionCard id="page" number="01" title="Página e URLs" description="A URL canônica ancora os IDs estáveis das entidades e é necessária para o grafo.">
     <FieldRow>
-      <Field label="URL canônica da PDP" value={data.pageUrl} onChange={(value) => patch('pageUrl', value)} type="url" placeholder="https://site.com/carros/modelo" required wide hint="Somente HTTP(S). Sem esta URL, a exportação é bloqueada." />
-      <Field label="URL raiz do site" value={data.siteUrl} onChange={(value) => patch('siteUrl', value)} type="url" placeholder="https://site.com/" />
-      <Field label="Nome do site" value={data.siteName} onChange={(value) => patch('siteName', value)} placeholder="Nome público do site" />
-      <Field label="Título da página" value={data.pageTitle} onChange={(value) => patch('pageTitle', value)} placeholder="Título publicado" />
-      <Field label="Idioma" value={data.language} onChange={(value) => patch('language', value)} placeholder="pt-BR" />
-      <Field label="Descrição da página" value={data.pageDescription} onChange={(value) => patch('pageDescription', value)} rows={3} wide />
+      <Field label="URL canônica da PDP" schemaProperty="WebPage.url" value={data.pageUrl} onChange={(value) => patch('pageUrl', value)} type="url" placeholder="https://site.com/carros/modelo" required wide hint="Somente HTTP(S). Sem esta URL, a exportação é bloqueada." />
+      <Field label="URL raiz do site" schemaProperty="WebSite.url" value={data.siteUrl} onChange={(value) => patch('siteUrl', value)} type="url" placeholder="https://site.com/" />
+      <Field label="Nome do site" schemaProperty="WebSite.name" value={data.siteName} onChange={(value) => patch('siteName', value)} placeholder="Nome público do site" />
+      <Field label="Título da página" schemaProperty="WebPage.name" value={data.pageTitle} onChange={(value) => patch('pageTitle', value)} placeholder="Título publicado" />
+      <Field label="Idioma" schemaProperty="inLanguage" value={data.language} onChange={(value) => patch('language', value)} placeholder="pt-BR" />
+      <Field label="Descrição da página" schemaProperty="WebPage.description" value={data.pageDescription} onChange={(value) => patch('pageDescription', value)} rows={3} wide />
     </FieldRow>
     <div className="form-note"><span className="status-dot status-dot--info" />WebPage é gerada a partir da URL canônica. WebSite só é incluído quando a URL raiz é válida.</div>
   </SectionCard>;

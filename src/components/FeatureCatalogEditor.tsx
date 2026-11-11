@@ -40,6 +40,7 @@ export function FeatureCatalogEditor({
         <div>
           <span className="field__label">{title}</span>
           <span className="field__hint">{filledCount} de {catalog.length} propriedades preenchidas. Deixe em branco se o dado não for informado.</span>
+          <code className="field__schema-property">additionalProperty.name / additionalProperty.value</code>
         </div>
         <label className="feature-catalog__search-label">
           <span className="visually-hidden">Filtrar propriedades</span>
@@ -75,7 +76,7 @@ export function FeatureCatalogEditor({
                   const value = valuesByName.get(featureNameKey(definition.name))?.value ?? '';
                   return (
                     <label className="feature-catalog__field" key={definition.name}>
-                      <span>{definition.name}</span>
+                      <span>{definition.name}<code className="feature-catalog__schema-property">additionalProperty</code></span>
                       <input
                         list={listId}
                         value={value}

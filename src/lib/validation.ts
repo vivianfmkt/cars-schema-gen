@@ -91,6 +91,7 @@ export function validateProject(data: PdpFormData): ValidationIssue[] {
   else urlField(issues, data.pageUrl, 'URL canônica da PDP', 'page', 'pageUrl');
   if (!hasText(data.modelName)) issues.push(issue('error', 'missing-model', 'Informe o nome do modelo para gerar Product e Vehicle.', 'model', 'modelName'));
   if (!data.versions.length) issues.push(issue('error', 'missing-version', 'Adicione ao menos uma versão para descrever o veículo.', 'versions'));
+  data.migrationConflicts.forEach((conflict) => issues.push(issue('error', 'migration-conflict', `Escolha um valor comum para “${conflict.label}” antes de exportar; o backup antigo tinha valores divergentes entre versões.`, 'model', conflict.key, conflict.id)));
 
   urlField(issues, data.siteUrl, 'URL do site', 'page', 'siteUrl');
   urlField(issues, data.organization.url, 'URL da organização', 'organization', 'url');
@@ -137,9 +138,6 @@ export function validateProject(data: PdpFormData): ValidationIssue[] {
     if (normalizedName && versionNames.has(normalizedName)) issues.push(issue('warning', 'duplicate-version-name', `Nome de versão repetido: “${version.name}”.`, section, 'name', version.id));
     if (normalizedName) versionNames.set(normalizedName, version.id);
     numericField(issues, version.modelDate, 'Ano da versão', section, 'modelDate', 'integer', version.id);
-    numericField(issues, version.numberOfDoors, 'Número de portas', section, 'numberOfDoors', 'integer', version.id);
-    numericField(issues, version.seatingCapacity, 'Capacidade de assentos', section, 'seatingCapacity', 'integer', version.id);
-    numericField(issues, version.numberOfAirbags, 'Número de airbags', section, 'numberOfAirbags', 'integer-nonnegative', version.id);
     numericField(issues, version.numberOfCylinders, 'Número de cilindros', section, 'numberOfCylinders', 'integer', version.id);
     numericField(issues, version.engineDisplacement, 'Cilindrada', section, 'engineDisplacement', 'positive', version.id);
     numericField(issues, version.powerOutput, 'Potência', section, 'powerOutput', 'positive', version.id);
@@ -149,7 +147,7 @@ export function validateProject(data: PdpFormData): ValidationIssue[] {
     numericField(issues, version.torqueGasoline, 'Torque com gasolina', section, 'torqueGasoline', 'positive', version.id);
     numericField(issues, version.torqueEthanol, 'Torque com etanol', section, 'torqueEthanol', 'positive', version.id);
     numericMeasureField(issues, version.emissionsCO2, 'Emissões de CO₂', section, 'emissionsCO2', 'nonnegative', version.id);
-    for (const [key, label] of [['length', 'Comprimento'], ['width', 'Largura'], ['height', 'Altura'], ['wheelbase', 'Entre-eixos'], ['cargoVolume', 'Volume do porta-malas'], ['fuelCapacity', 'Capacidade do tanque']] as const) {
+    for (const [key, label] of [['length', 'Comprimento'], ['width', 'Largura'], ['height', 'Altura'], ['cargoVolume', 'Volume do porta-malas'], ['fuelCapacity', 'Capacidade do tanque']] as const) {
       numericField(issues, version.measurements[key], label, section, `measurements.${key}`, 'positive', version.id);
     }
     for (const [key, label] of [['urbanGasoline', 'Consumo urbano (gasolina)'], ['highwayGasoline', 'Consumo rodoviário (gasolina)'], ['urbanEthanol', 'Consumo urbano (etanol)'], ['highwayEthanol', 'Consumo rodoviário (etanol)']] as const) {
