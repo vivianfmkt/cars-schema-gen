@@ -64,8 +64,8 @@
 ### Propriedades pré-carregadas comuns do modelo — Concluído
 
 - [x] Na seção “Modelo e dados compartilhados”, pré-carregar estes campos Schema.org: combustível `fuelType`; configuração das rodas motrizes `driveWheelConfiguration`; transmissão do veículo `vehicleTransmission`; número de portas `numberOfDoors`; número de lugares `seatingCapacity`; número de airbags `numberOfAirbags`.
-- [x] Marco histórico da atualização anterior: valores comuns eram aplicados às entidades `Vehicle` correspondentes. Com a solicitação posterior desta mesma data, este comportamento foi substituído: agora os seis campos são representados no `ProductGroup.additionalProperty`, sem emissão por versão.
-- [x] Os valores de `numberOfDoors`, `seatingCapacity` e `numberOfAirbags` continuam serializados como números JSON quando numéricos, agora como `PropertyValue.value`; os demais permanecem texto conforme o tipo Schema.org.
+- [x] Marco da decisão final: os seis valores são informados uma vez na seção comum do modelo e aplicados como propriedades diretas de cada `Vehicle`; não são inseridos no `ProductGroup` nem como `additionalProperty` dele.
+- [x] Os valores de `numberOfDoors`, `seatingCapacity` e `numberOfAirbags` são serializados como números JSON em cada `Vehicle` quando numéricos; combustível, rodas motrizes e transmissão permanecem textuais.
 - [x] Manter compatibilidade com projetos locais e backups já existentes: migrar valores pontuais antigos e campos comuns ausentes sem apagar dados, aceitar vírgula decimal legada e preservar valores que precisem de correção para serem mostrados pela validação.
 - [x] A versão de backup exportada/importada identificará a nova estrutura, continuará aceitando arquivos v1 e migrará seus dados para o formato atual sem perda.
 
@@ -74,15 +74,15 @@
 
 ### Campos opcionais vazios e ausência de herança indesejada — Concluído
 
-- [x] Ao apagar um valor opcional de versão, a propriedade correspondente deve desaparecer da entidade `Vehicle`; não deve reaparecer por herança automática de um valor comum preenchido. O comportamento vale para qualquer propriedade opcional de veículo. Dados comuns que permanecem preenchidos podem aparecer somente no nível comum adequado, conforme os critérios abaixo.
+- [x] Ao apagar um valor opcional específico de uma versão, a propriedade correspondente deve desaparecer daquela entidade `Vehicle`; não deve reaparecer por herança automática de valores comuns em campos que têm entrada por versão. Os seis campos que existem somente na seção comum do modelo são uma exceção intencional: seus valores comuns são aplicados diretamente a cada `Vehicle`, pois esse é o domínio Schema.org de cada propriedade.
 - [x] Campos opcionais realmente vazios não devem deixar texto, `null`, `undefined`, objeto vazio ou propriedade redundante no JSON-LD; campos obrigatórios e seus bloqueios de validação permanecem inalterados.
 
-### Propriedades do modelo compartilhadas apenas no ProductGroup — Concluído
+### Propriedades compartilhadas distribuídas pelo tipo Schema.org adequado — Concluído
 
 - [x] Incluir no nível `ProductGroup` a medida comum `wheelbase` (Entre-eixos) e não a duplicar em cada `Vehicle`.
 - [x] Mover para as propriedades comuns do modelo e para o `ProductGroup`, sem emissão por versão: `additionalProperty` Direção; Assistente de Partida em Aclive; Chave com Sensor de Aproximação; Controlador de Limite de Velocidade; Easy Entry; Easy Start; Sistema de Luz Siga-me; Sistema de Luz Leve-me; Travas Elétricas; Vidros Elétricos; Rádio AM/FM; Android Auto; Apple CarPlay; Wi-Fi embarcado; OnStar; Alerta de Frenagem de Emergência; ISOFIX; TOP TETHER; ABS; EBD; Assistência de Frenagem de Urgência.
-- [x] Manter no nível comum do modelo e retirar da seção/saída individual das versões os campos já adicionados: combustível `fuelType`; configuração das rodas motrizes `driveWheelConfiguration`; transmissão `vehicleTransmission`; número de portas `numberOfDoors`; número de lugares `seatingCapacity`; número de airbags `numberOfAirbags`.
-- [x] Respeitar a estrutura acordada com a usuária: como essas propriedades automotivas são definidas para `Vehicle` e não como propriedades diretas de `ProductGroup`, serializá-las no `ProductGroup.additionalProperty` como `PropertyValue`, identificando o termo técnico no nome; `wheelbase` inclui valor numérico e unidade `MMT`; portas, lugares e airbags são números JSON quando numéricos. Não emitir os termos correspondentes nos nós `Vehicle`.
+- [x] Manter no nível comum do modelo e retirar da seção/entrada individual das versões os campos já adicionados: combustível `fuelType`; configuração das rodas motrizes `driveWheelConfiguration`; transmissão `vehicleTransmission`; número de portas `numberOfDoors`; número de lugares `seatingCapacity`; número de airbags `numberOfAirbags`. Aplicar os valores comuns diretamente em cada `Vehicle` gerado.
+- [x] Respeitar a estrutura confirmada pela usuária: `fuelType`, `driveWheelConfiguration`, `vehicleTransmission`, `numberOfDoors`, `seatingCapacity` e `numberOfAirbags` são propriedades diretas de `Vehicle`, não de `ProductGroup`; não as serializar como `additionalProperty` do grupo. `wheelbase` compartilhado inclui valor numérico e unidade `MMT` em `ProductGroup.additionalProperty`; portas, lugares e airbags são números JSON quando numéricos.
 - [x] Ao migrar dados já salvos/importados, manter valores comuns existentes. Valores legados só são migrados automaticamente quando todas as versões têm o mesmo valor não vazio, com comparação numérica normalizada para campos numéricos. Se divergirem ou algumas versões estiverem sem valor, preservar os candidatos e apresentar conflito visível para escolha, sem descartar nem publicar os candidatos por versão.
 - [x] Migrar automaticamente os valores antigos de `wheelbase` por versão para o campo comum quando forem unânimes; preservar e expor divergências/parcialidades como conflito. Importação de backups v1/v2 e abertura do armazenamento local permanecem funcionais e idempotentes após a atualização do formato v3.
 

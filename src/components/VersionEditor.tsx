@@ -170,7 +170,7 @@ export function VersionEditor({ data, onChange }: { data: PdpFormData; onChange(
 
   return (
     <>
-      <SectionCard id="model" number="03" title="Modelo e dados compartilhados" description="Informações comuns ao modelo são emitidas no ProductGroup, sem cópia automática nos nós Vehicle das versões.">
+      <SectionCard id="model" number="03" title="Modelo e dados compartilhados" description="Dados comuns são aplicados às versões ou ao ProductGroup conforme o domínio de cada propriedade no Schema.org.">
         <MigrationConflictResolver data={data} onChange={onChange} />
         <Subheading title="Identidade do veículo" />
         <FieldRow>
@@ -180,14 +180,14 @@ export function VersionEditor({ data, onChange }: { data: PdpFormData; onChange(
           <Field label="Carroceria comum" schemaProperty="additionalProperty.name: bodyType" value={data.bodyType} onChange={(value) => onChange({ ...data, bodyType: value })} placeholder="Se igual em todas as versões" />
           <Field label="Descrição do modelo" schemaProperty="ProductGroup.description" value={data.modelDescription} onChange={(value) => onChange({ ...data, modelDescription: value })} rows={3} wide hint="Usada somente quando informada; nenhum texto é criado automaticamente." />
         </FieldRow>
-        <Subheading title="Propriedades técnicas comuns do modelo" description="Os seis dados técnicos são representados como additionalProperty no ProductGroup; não são repetidos em cada Vehicle." />
+        <Subheading title="Propriedades técnicas comuns do modelo" description="Preencha uma vez; estes seis dados serão incluídos como propriedades diretas em cada Vehicle das versões." />
         <FieldRow>
-          <Field label="Tipo de combustível" schemaProperty="additionalProperty.name: fuelType" value={data.sharedVehicleProperties.fuelType} onChange={(value) => patchSharedVehicleProperty('fuelType', value)} placeholder="Ex.: flex, gasolina, elétrico" />
-          <Field label="Rodas motrizes" schemaProperty="additionalProperty.name: driveWheelConfiguration" value={data.sharedVehicleProperties.driveWheelConfiguration} onChange={(value) => patchSharedVehicleProperty('driveWheelConfiguration', value)} placeholder="Ex.: dianteira, integral" />
-          <Field label="Transmissão do veículo" schemaProperty="additionalProperty.name: vehicleTransmission" value={data.sharedVehicleProperties.vehicleTransmission} onChange={(value) => patchSharedVehicleProperty('vehicleTransmission', value)} placeholder="Ex.: automática de 6 marchas" />
-          <Field label="Número de portas" schemaProperty="additionalProperty.name: numberOfDoors" value={data.sharedVehicleProperties.numberOfDoors} onChange={(value) => patchSharedVehicleProperty('numberOfDoors', value)} inputMode="numeric" placeholder="Ex.: 4" />
-          <Field label="Número de lugares" schemaProperty="additionalProperty.name: seatingCapacity" value={data.sharedVehicleProperties.seatingCapacity} onChange={(value) => patchSharedVehicleProperty('seatingCapacity', value)} inputMode="numeric" placeholder="Ex.: 5" />
-          <Field label="Número de airbags" schemaProperty="additionalProperty.name: numberOfAirbags" value={data.sharedVehicleProperties.numberOfAirbags} onChange={(value) => patchSharedVehicleProperty('numberOfAirbags', value)} inputMode="numeric" placeholder="Ex.: 6" />
+          <Field label="Tipo de combustível" schemaProperty="Vehicle.fuelType" value={data.sharedVehicleProperties.fuelType} onChange={(value) => patchSharedVehicleProperty('fuelType', value)} placeholder="Ex.: flex, gasolina, elétrico" />
+          <Field label="Rodas motrizes" schemaProperty="Vehicle.driveWheelConfiguration" value={data.sharedVehicleProperties.driveWheelConfiguration} onChange={(value) => patchSharedVehicleProperty('driveWheelConfiguration', value)} placeholder="Ex.: dianteira, integral" />
+          <Field label="Transmissão do veículo" schemaProperty="Vehicle.vehicleTransmission" value={data.sharedVehicleProperties.vehicleTransmission} onChange={(value) => patchSharedVehicleProperty('vehicleTransmission', value)} placeholder="Ex.: automática de 6 marchas" />
+          <Field label="Número de portas" schemaProperty="Vehicle.numberOfDoors" value={data.sharedVehicleProperties.numberOfDoors} onChange={(value) => patchSharedVehicleProperty('numberOfDoors', value)} inputMode="numeric" placeholder="Ex.: 4" />
+          <Field label="Número de lugares" schemaProperty="Vehicle.seatingCapacity" value={data.sharedVehicleProperties.seatingCapacity} onChange={(value) => patchSharedVehicleProperty('seatingCapacity', value)} inputMode="numeric" placeholder="Ex.: 5" />
+          <Field label="Número de airbags" schemaProperty="Vehicle.numberOfAirbags" value={data.sharedVehicleProperties.numberOfAirbags} onChange={(value) => patchSharedVehicleProperty('numberOfAirbags', value)} inputMode="numeric" placeholder="Ex.: 6" />
         </FieldRow>
         <div className="form-note"><span className="status-dot status-dot--info" />Quando os valores forem compatíveis entre versões antigas, são migrados ao modelo; divergências ficam pendentes para escolha explícita.</div>
         <Subheading title="Cores compartilhadas" />

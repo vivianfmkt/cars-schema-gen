@@ -398,7 +398,7 @@ describe('medidas numéricas de consumo e emissões', () => {
 });
 
 describe('propriedades técnicas compartilhadas do modelo', () => {
-  it('serializa os seis campos no ProductGroup via additionalProperty e não os duplica nos Vehicle', () => {
+  it('emite os seis campos diretamente em cada Vehicle, sem colocá-los no ProductGroup', () => {
     const data = baseData();
     const first = data.versions[0];
     const second = createBlankVersion('Touring');
@@ -411,19 +411,40 @@ describe('propriedades técnicas compartilhadas do modelo', () => {
     const result = generateSchema(data);
     const vehicles = result.document['@graph'].filter((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'));
     const group = result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
-    const properties = group.additionalProperty as { name: string; value: string | number }[];
-    const byName = Object.fromEntries(properties.map((property) => [property.name, property.value]));
-    expect(byName).toMatchObject({
+    const sharedVehicleData = {
       fuelType: 'Flex', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática',
       numberOfDoors: 4, seatingCapacity: 5, numberOfAirbags: 6,
-    });
+    };
     for (const vehicle of vehicles) {
-      for (const field of ['fuelType', 'driveWheelConfiguration', 'vehicleTransmission', 'numberOfDoors', 'seatingCapacity', 'numberOfAirbags']) {
-        expect(vehicle).not.toHaveProperty(field);
-      }
+      expect(vehicle).toMatchObject(sharedVehicleData);
     }
+    expect(group).not.toHaveProperty('fuelType');
+    expect(group).not.toHaveProperty('driveWheelConfiguration');
+    expect(group).not.toHaveProperty('vehicleTransmission');
+    expect(group).not.toHaveProperty('numberOfDoors');
+    expect(group).not.toHaveProperty('seatingCapacity');
+    expect(group).not.toHaveProperty('numberOfAirbags');
+    const properties = (group.additionalProperty ?? []) as { name: string }[];
+    expect(properties.map((property) => property.name)).not.toEqual(expect.arrayContaining([
+      'fuelType', 'driveWheelConfiguration', 'vehicleTransmission', 'numberOfDoors', 'seatingCapacity', 'numberOfAirbags',
+    ]));
     expect(group.variesBy).not.toContain('fuelType');
     expect(validateGraph(result.document).filter((entry) => entry.severity === 'error')).toHaveLength(0);
+  });
+
+  it('mantém os dados técnicos no Vehicle mesmo quando uma versão não exige ProductGroup', () => {
+    const data = baseData();
+    data.sharedVehicleProperties = {
+      fuelType: 'Elétrico', driveWheelConfiguration: 'Traseira', vehicleTransmission: 'Automática',
+      numberOfDoors: '5', seatingCapacity: '5', numberOfAirbags: '8',
+    };
+    const result = generateSchema(data);
+    const vehicle = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+    expect(result.document['@graph'].some((node) => node['@type'] === 'ProductGroup')).toBe(false);
+    expect(vehicle).toMatchObject({
+      fuelType: 'Elétrico', driveWheelConfiguration: 'Traseira', vehicleTransmission: 'Automática',
+      numberOfDoors: 5, seatingCapacity: 5, numberOfAirbags: 8,
+    });
   });
 
   it('mantém wheelbase e características compartilhadas no ProductGroup mesmo com uma única versão', () => {
@@ -439,10 +460,12 @@ describe('propriedades técnicas compartilhadas do modelo', () => {
     const properties = group.additionalProperty as { name: string; value: string | number; unitText?: string }[];
     expect(properties.find((property) => property.name === 'wheelbase')).toMatchObject({ value: 2700, unitCode: 'MMT' });
     expect(properties.find((property) => property.name === 'Direção')?.value).toBe('Elétrica');
-    expect(properties.find((property) => property.name === 'numberOfDoors')?.value).toBe(4);
+    expect(vehicle.numberOfDoors).toBe(4);
     expect(group.hasVariant).toHaveLength(1);
     expect(vehicle).not.toHaveProperty('wheelbase');
-    expect(vehicle).not.toHaveProperty('numberOfDoors');
+    expect(group.additionalProperty).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'numberOfDoors' }),
+    ]));
     expect(vehicle).not.toHaveProperty('vehicleModelDate');
   });
 
