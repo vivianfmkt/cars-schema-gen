@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Measurements, PdpFormData, VehicleVersion } from '../model/types';
-import { createBlankVersion, createId } from '../lib/ids';
+import type { Measurements, NumericMeasureDraft, PdpFormData, VehicleVersion } from '../model/types';
+import { cleanText, createBlankVersion, createId } from '../lib/ids';
 import { isCatalogFeatureName, SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG } from '../lib/feature-catalog';
 import { Field, FieldRow, FeatureList, SectionCard, Subheading, TagList } from './FormControls';
 import { FeatureCatalogEditor } from './FeatureCatalogEditor';
@@ -10,19 +10,59 @@ const measurementFields: [keyof Measurements, string, string][] = [
   ['wheelbase', 'Entre-eixos', 'mm'], ['cargoVolume', 'Volume do porta-malas', 'L'], ['fuelCapacity', 'Capacidade do tanque', 'L'],
 ];
 
-function VersionCard({ version, index, count, onPatch, onDuplicate, onDelete, onMove }: {
-  version: VehicleVersion; index: number; count: number; onPatch(patch: Partial<VehicleVersion>): void;
+const consumptionFields: [keyof VehicleVersion['consumption'], string][] = [
+  ['urbanGasoline', 'Urbano · gasolina'], ['highwayGasoline', 'Rodoviário · gasolina'],
+  ['urbanEthanol', 'Urbano · etanol'], ['highwayEthanol', 'Rodoviário · etanol'],
+];
+
+function versionSubtitle(version: VehicleVersion, shared: PdpFormData['sharedVehicleProperties']): string {
+  const textValues = [
+    cleanText(version.transmission) || cleanText(shared.vehicleTransmission),
+    cleanText(version.fuelType) || cleanText(shared.fuelType),
+    cleanText(version.driveWheelConfiguration) || cleanText(shared.driveWheelConfiguration),
+  ].filter(Boolean);
+  if (textValues.length) return textValues.slice(0, 2).join(' · ');
+  const numericValues: [string, string, string][] = [
+    [cleanText(version.numberOfDoors) || cleanText(shared.numberOfDoors), 'porta', 'portas'],
+    [cleanText(version.seatingCapacity) || cleanText(shared.seatingCapacity), 'lugar', 'lugares'],
+    [cleanText(version.numberOfAirbags) || cleanText(shared.numberOfAirbags), 'airbag', 'airbags'],
+  ];
+  const populatedNumericValues = numericValues.filter(([value]) => Boolean(value));
+  return populatedNumericValues.slice(0, 2).map(([value, singular, plural]) => `${value} ${value === '1' ? singular : plural}`).join(' · ') || 'Dados independentes';
+}
+
+function NumericMeasureFields({ label, unit, value, onChange }: {
+  label: string; unit: string; value: NumericMeasureDraft; onChange(value: NumericMeasureDraft): void;
+}) {
+  const patch = (key: keyof NumericMeasureDraft, nextValue: string) => {
+    const next = { ...value, [key]: nextValue };
+    if (nextValue && key === 'value') { next.minValue = ''; next.maxValue = ''; }
+    if (nextValue && key !== 'value') next.value = '';
+    onChange(next);
+  };
+  return <div className="numeric-measure">
+    <span className="numeric-measure__title">{label} <span>{unit}</span></span>
+    <FieldRow className="numeric-measure__fields">
+      <Field label="Valor exato" value={value.value} onChange={(next) => patch('value', next)} inputMode="decimal" placeholder="Ex.: 11.5" />
+      <Field label="Mínimo" value={value.minValue} onChange={(next) => patch('minValue', next)} inputMode="decimal" placeholder="Ex.: 10.0" />
+      <Field label="Máximo" value={value.maxValue} onChange={(next) => patch('maxValue', next)} inputMode="decimal" placeholder="Ex.: 12.5" />
+    </FieldRow>
+  </div>;
+}
+
+function VersionCard({ version, sharedVehicleProperties, index, count, onPatch, onDuplicate, onDelete, onMove }: {
+  version: VehicleVersion; sharedVehicleProperties: PdpFormData['sharedVehicleProperties']; index: number; count: number; onPatch(patch: Partial<VehicleVersion>): void;
   onDuplicate(): void; onDelete(): void; onMove(direction: -1 | 1): void;
 }) {
   const [expanded, setExpanded] = useState(index === 0);
   const patchMeasurement = (key: keyof Measurements, value: string) => onPatch({ measurements: { ...version.measurements, [key]: value } });
-  const patchConsumption = (key: keyof VehicleVersion['consumption'], value: string) => onPatch({ consumption: { ...version.consumption, [key]: value } });
+  const patchConsumption = (key: keyof VehicleVersion['consumption'], value: NumericMeasureDraft) => onPatch({ consumption: { ...version.consumption, [key]: value } });
   return (
     <details className="version-card" open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)}>
       <summary className="version-card__summary">
         <span className="version-card__index">{String(index + 1).padStart(2, '0')}</span>
         <span className="version-card__title">{version.name.trim() || `Versão ${index + 1}`}</span>
-        <span className="version-card__subtitle">{version.transmission || version.fuelType || 'Dados independentes'}</span>
+        <span className="version-card__subtitle">{versionSubtitle(version, sharedVehicleProperties)}</span>
         <span className="version-card__chevron">⌄</span>
       </summary>
       <div className="version-card__toolbar">
@@ -39,12 +79,12 @@ function VersionCard({ version, index, count, onPatch, onDuplicate, onDelete, on
           <Field label="Configuração do veículo" value={version.configuration} onChange={(value) => onPatch({ configuration: value })} placeholder="Designação de catálogo" />
           <Field label="Ano-modelo" value={version.modelDate} onChange={(value) => onPatch({ modelDate: value })} inputMode="numeric" placeholder="AAAA" />
           <Field label="Carroceria" value={version.bodyType} onChange={(value) => onPatch({ bodyType: value })} placeholder="Tipo de carroceria" />
-          <Field label="Combustível" value={version.fuelType} onChange={(value) => onPatch({ fuelType: value })} placeholder="Ex.: flex, diesel, elétrico" />
-          <Field label="Tração" value={version.driveWheelConfiguration} onChange={(value) => onPatch({ driveWheelConfiguration: value })} placeholder="Ex.: dianteira / integral" />
-          <Field label="Transmissão" value={version.transmission} onChange={(value) => onPatch({ transmission: value })} placeholder="Tipo de transmissão" />
-          <Field label="Portas" value={version.numberOfDoors} onChange={(value) => onPatch({ numberOfDoors: value })} inputMode="numeric" />
-          <Field label="Assentos" value={version.seatingCapacity} onChange={(value) => onPatch({ seatingCapacity: value })} inputMode="numeric" />
-          <Field label="Airbags" value={version.numberOfAirbags} onChange={(value) => onPatch({ numberOfAirbags: value })} inputMode="numeric" />
+          <Field label="Combustível desta versão" value={version.fuelType} onChange={(value) => onPatch({ fuelType: value })} placeholder="Sobrescreve o valor comum" hint="Em branco, herda o combustível comum." />
+          <Field label="Tração desta versão" value={version.driveWheelConfiguration} onChange={(value) => onPatch({ driveWheelConfiguration: value })} placeholder="Sobrescreve o valor comum" hint="Em branco, herda a configuração comum." />
+          <Field label="Transmissão desta versão" value={version.transmission} onChange={(value) => onPatch({ transmission: value })} placeholder="Sobrescreve o valor comum" hint="Em branco, herda a transmissão comum." />
+          <Field label="Portas desta versão" value={version.numberOfDoors} onChange={(value) => onPatch({ numberOfDoors: value })} inputMode="numeric" placeholder="Sobrescreve o comum" />
+          <Field label="Assentos desta versão" value={version.seatingCapacity} onChange={(value) => onPatch({ seatingCapacity: value })} inputMode="numeric" placeholder="Sobrescreve o comum" />
+          <Field label="Airbags desta versão" value={version.numberOfAirbags} onChange={(value) => onPatch({ numberOfAirbags: value })} inputMode="numeric" placeholder="Sobrescreve o comum" />
         </FieldRow>
 
         <Subheading title="Dimensões e capacidades" description="Valores numéricos; a unidade fixa aparece ao lado do campo." />
@@ -66,14 +106,11 @@ function VersionCard({ version, index, count, onPatch, onDuplicate, onDelete, on
           <Field label="Torque etanol" value={version.torqueEthanol} onChange={(value) => onPatch({ torqueEthanol: value })} unit="kgfm" inputMode="decimal" />
         </FieldRow>
 
-        <Subheading title="Consumo e emissões" description="Consumo em km/L; os quatro campos podem ser informados independentemente." />
-        <FieldRow>
-          <Field label="Urbano · gasolina" value={version.consumption.urbanGasoline} onChange={(value) => patchConsumption('urbanGasoline', value)} unit="km/L" inputMode="decimal" />
-          <Field label="Rodoviário · gasolina" value={version.consumption.highwayGasoline} onChange={(value) => patchConsumption('highwayGasoline', value)} unit="km/L" inputMode="decimal" />
-          <Field label="Urbano · etanol" value={version.consumption.urbanEthanol} onChange={(value) => patchConsumption('urbanEthanol', value)} unit="km/L" inputMode="decimal" />
-          <Field label="Rodoviário · etanol" value={version.consumption.highwayEthanol} onChange={(value) => patchConsumption('highwayEthanol', value)} unit="km/L" inputMode="decimal" />
-          <Field label="CO₂" value={version.emissionsCO2} onChange={(value) => onPatch({ emissionsCO2: value })} unit="g/km" inputMode="decimal" />
-        </FieldRow>
+        <Subheading title="Consumo e emissões" description="Informe um valor exato OU um intervalo completo; use ponto como separador decimal. Os limites serão números JSON." />
+        <div className="numeric-measure-list">
+          {consumptionFields.map(([key, label]) => <NumericMeasureFields key={key} label={label} unit="km/L" value={version.consumption[key]} onChange={(value) => patchConsumption(key, value)} />)}
+          <NumericMeasureFields label="Emissões de CO₂" unit="g/km" value={version.emissionsCO2} onChange={(emissionsCO2) => onPatch({ emissionsCO2 })} />
+        </div>
 
         <Subheading title="Cores e equipamentos" description="Cores compartilhadas também podem ser definidas na seção Modelo." />
         <FieldRow>
@@ -109,6 +146,7 @@ export function VersionEditor({ data, onChange }: { data: PdpFormData; onChange(
     onChange({ ...data, versions: data.versions.filter((item) => item.id !== version.id) });
   };
   const sharedMeasurement = (key: keyof Measurements, value: string) => onChange({ ...data, sharedMeasurements: { ...data.sharedMeasurements, [key]: value } });
+  const patchSharedVehicleProperty = (key: keyof PdpFormData['sharedVehicleProperties'], value: string) => onChange({ ...data, sharedVehicleProperties: { ...data.sharedVehicleProperties, [key]: value } });
 
   return (
     <>
@@ -121,6 +159,16 @@ export function VersionEditor({ data, onChange }: { data: PdpFormData; onChange(
           <Field label="Carroceria comum" value={data.bodyType} onChange={(value) => onChange({ ...data, bodyType: value })} placeholder="Se igual em todas as versões" />
           <Field label="Descrição do modelo" value={data.modelDescription} onChange={(value) => onChange({ ...data, modelDescription: value })} rows={3} wide hint="Usada somente quando informada; nenhum texto é criado automaticamente." />
         </FieldRow>
+        <Subheading title="Propriedades técnicas comuns do modelo" description="Campos Schema.org pré-carregados; valores comuns são aplicados a todas as versões, salvo substituição específica." />
+        <FieldRow>
+          <Field label="Tipo de combustível · fuelType" value={data.sharedVehicleProperties.fuelType} onChange={(value) => patchSharedVehicleProperty('fuelType', value)} placeholder="Ex.: flex, gasolina, elétrico" />
+          <Field label="Rodas motrizes · driveWheelConfiguration" value={data.sharedVehicleProperties.driveWheelConfiguration} onChange={(value) => patchSharedVehicleProperty('driveWheelConfiguration', value)} placeholder="Ex.: dianteira, integral" />
+          <Field label="Transmissão · vehicleTransmission" value={data.sharedVehicleProperties.vehicleTransmission} onChange={(value) => patchSharedVehicleProperty('vehicleTransmission', value)} placeholder="Ex.: automática de 6 marchas" />
+          <Field label="Número de portas · numberOfDoors" value={data.sharedVehicleProperties.numberOfDoors} onChange={(value) => patchSharedVehicleProperty('numberOfDoors', value)} inputMode="numeric" placeholder="Ex.: 4" />
+          <Field label="Número de lugares · seatingCapacity" value={data.sharedVehicleProperties.seatingCapacity} onChange={(value) => patchSharedVehicleProperty('seatingCapacity', value)} inputMode="numeric" placeholder="Ex.: 5" />
+          <Field label="Número de airbags · numberOfAirbags" value={data.sharedVehicleProperties.numberOfAirbags} onChange={(value) => patchSharedVehicleProperty('numberOfAirbags', value)} inputMode="numeric" placeholder="Ex.: 6" />
+        </FieldRow>
+        <div className="form-note"><span className="status-dot status-dot--info" />As versões herdam estes dados quando seus campos específicos ficam vazios; números são gerados como números JSON.</div>
         <Subheading title="Cores compartilhadas" />
         <FieldRow>
           <TagList label="Cores externas comuns" items={data.commonExteriorColors} onChange={(items) => onChange({ ...data, commonExteriorColors: items })} />
@@ -141,7 +189,7 @@ export function VersionEditor({ data, onChange }: { data: PdpFormData; onChange(
       <SectionCard id="versions" number="04" title="Versões" description="Cada versão possui seu próprio motor, transmissão, consumo, cores, dimensões e equipamentos."
         aside={<button type="button" className="button button--primary button--small" onClick={() => onChange({ ...data, versions: [...data.versions, createBlankVersion()] })}>＋ Adicionar versão</button>}>
         <div className="version-list">
-          {data.versions.map((version, index) => <VersionCard key={version.id} version={version} index={index} count={data.versions.length}
+          {data.versions.map((version, index) => <VersionCard key={version.id} version={version} sharedVehicleProperties={data.sharedVehicleProperties} index={index} count={data.versions.length}
             onPatch={(patch) => updateVersion(version.id, patch)} onDuplicate={() => duplicate(index)} onDelete={() => remove(version)} onMove={(direction) => reorder(index, direction)} />)}
         </div>
         <div className="form-note"><span className="status-dot status-dot--info" />{data.versions.length} {data.versions.length === 1 ? 'versão cadastrada' : 'versões cadastradas'} · IDs e dados independentes.</div>

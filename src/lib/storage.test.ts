@@ -27,6 +27,7 @@ describe('persistência e exportação', () => {
   it('exporta e importa arquivo de backup versionado com vários projetos', () => {
     const projects = [createProject('Um'), createProject('Dois')];
     const archive = makeProjectArchive(projects);
+    expect(archive.version).toBe(2);
     expect(parseProjectArchive(JSON.stringify(archive))).toHaveLength(2);
     expect(() => parseProjectArchive('{"projects":[]}')).toThrow(/Formato/);
   });
@@ -58,25 +59,39 @@ describe('validação de backups', () => {
     const legacy = createProject('Legado v1');
     legacy.data.sharedFeatures = [{ id: 'custom-shared', name: 'Acabamento especial', value: 'Pintura fosca' }];
     legacy.data.versions[0].features = [{ id: 'custom-version', name: 'Som premium', value: '10 alto-falantes' }];
-    const migrated = parseProjectArchive(JSON.stringify(makeProjectArchive([legacy])))[0];
+    delete (legacy.data as unknown as Record<string, unknown>).sharedVehicleProperties;
+    const legacyVersion = legacy.data.versions[0] as unknown as Record<string, unknown>;
+    const legacyConsumption = legacyVersion.consumption as Record<string, unknown>;
+    legacyConsumption.urbanGasoline = '11,5';
+    legacyConsumption.highwayGasoline = '11,2 a 11,5';
+    legacyVersion.emissionsCO2 = '120,5';
+    const v1Archive = { ...makeProjectArchive([legacy]), version: 1 as const };
+    const migrated = parseProjectArchive(JSON.stringify(v1Archive))[0];
 
     expect(migrated.data.sharedFeatures).toHaveLength(SHARED_FEATURE_CATALOG.length + 1);
     expect(migrated.data.versions[0].features).toHaveLength(VERSION_FEATURE_CATALOG.length + 1);
     expect(migrated.data.sharedFeatures.find((entry) => entry.name === 'Acabamento especial')?.value).toBe('Pintura fosca');
     expect(migrated.data.versions[0].features.find((entry) => entry.name === 'Som premium')?.value).toBe('10 alto-falantes');
     expect(migrated.data.versions[0].features.find((entry) => entry.name === 'Entrada USB')?.value).toBe('');
+    expect(migrated.data.sharedVehicleProperties.fuelType).toBe('');
+    expect(migrated.data.versions[0].consumption.urbanGasoline.value).toBe('11.5');
+    expect(migrated.data.versions[0].consumption.highwayGasoline).toEqual({ value: '', minValue: '11.2', maxValue: '11.5' });
+    expect(migrated.data.versions[0].emissionsCO2.value).toBe('120.5');
   });
 
   it('adiciona os campos do catálogo ao abrir dados legados do armazenamento local', () => {
     vi.stubGlobal('localStorage', localStorageStub);
     const legacy = createProject('Legado local');
+    delete (legacy.data as unknown as Record<string, unknown>).sharedVehicleProperties;
     legacy.data.sharedFeatures = [];
     legacy.data.versions[0].features = [];
+    (legacy.data.versions[0] as unknown as Record<string, unknown>).emissionsCO2 = '99,4';
     memory.set('pdp-schema-projects-v1', JSON.stringify([legacy]));
 
     const loaded = loadProjects()[0];
     expect(loaded.data.sharedFeatures).toHaveLength(SHARED_FEATURE_CATALOG.length);
     expect(loaded.data.versions[0].features).toHaveLength(VERSION_FEATURE_CATALOG.length);
     expect(new Set(loaded.data.versions[0].features.map((entry) => entry.id)).size).toBe(VERSION_FEATURE_CATALOG.length);
+    expect(loaded.data.versions[0].emissionsCO2.value).toBe('99.4');
   });
 });

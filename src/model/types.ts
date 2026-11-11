@@ -28,11 +28,26 @@ export interface Measurements {
   fuelCapacity: string;
 }
 
+export interface NumericMeasureDraft {
+  value: string;
+  minValue: string;
+  maxValue: string;
+}
+
 export interface ConsumptionValues {
-  urbanGasoline: string;
-  highwayGasoline: string;
-  urbanEthanol: string;
-  highwayEthanol: string;
+  urbanGasoline: NumericMeasureDraft;
+  highwayGasoline: NumericMeasureDraft;
+  urbanEthanol: NumericMeasureDraft;
+  highwayEthanol: NumericMeasureDraft;
+}
+
+export interface SharedVehicleProperties {
+  fuelType: string;
+  driveWheelConfiguration: string;
+  vehicleTransmission: string;
+  numberOfDoors: string;
+  seatingCapacity: string;
+  numberOfAirbags: string;
 }
 
 export interface OfferDraft {
@@ -64,7 +79,7 @@ export interface VehicleVersion {
   interiorColors: string[];
   measurements: Measurements;
   consumption: ConsumptionValues;
-  emissionsCO2: string;
+  emissionsCO2: NumericMeasureDraft;
   engineType: string;
   numberOfCylinders: string;
   engineDisplacement: string;
@@ -145,6 +160,7 @@ export interface PdpFormData {
   commonExteriorColors: string[];
   commonInteriorColors: string[];
   sharedMeasurements: Measurements;
+  sharedVehicleProperties: SharedVehicleProperties;
   sharedFeatures: FeatureEntry[];
   versions: VehicleVersion[];
   offers: OfferDraft[];

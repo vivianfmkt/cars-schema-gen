@@ -1,4 +1,4 @@
-import type { BreadcrumbEntry, FaqEntry, FeatureEntry, ImageDraft, OfferDraft, PdpFormData, ProjectRecord, VehicleVersion, VideoDraft } from '../model/types';
+import type { BreadcrumbEntry, ConsumptionValues, FaqEntry, FeatureEntry, ImageDraft, NumericMeasureDraft, OfferDraft, PdpFormData, ProjectRecord, SharedVehicleProperties, VehicleVersion, VideoDraft } from '../model/types';
 import { featureNameKey, SHARED_FEATURE_CATALOG, VERSION_FEATURE_CATALOG, type FeatureDefinition } from './feature-catalog';
 
 export function createId(): string {
@@ -37,6 +37,55 @@ export function parseLocalizedNumber(value: string): number | undefined {
   return Number.isFinite(number) ? number : undefined;
 }
 
+/** Parses fields whose UI explicitly treats a single dot as a decimal separator. */
+export function parseDecimalNumber(value: string): number | undefined {
+  const input = cleanText(value).replace(/\s/g, '');
+  if (!input) return undefined;
+  const dotCount = (input.match(/\./g) ?? []).length;
+  if (dotCount === 1 && !input.includes(',')) {
+    if (!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(input)) return undefined;
+    const number = Number(input);
+    return Number.isFinite(number) ? number : undefined;
+  }
+  if (dotCount > 1 && !input.includes(',') && !/^[+-]?\d{1,3}(?:\.\d{3})+$/.test(input)) return undefined;
+  return parseLocalizedNumber(input);
+}
+
+function numericDraftText(value: unknown): string {
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '';
+  if (typeof value !== 'string') return '';
+  const text = value.trim();
+  if (!text) return '';
+  const number = parseDecimalNumber(text);
+  return number === undefined ? text : String(number);
+}
+
+/** Migrates legacy exact-value strings and textual ranges without losing unparseable input. */
+export function normalizeNumericMeasure(input: unknown): NumericMeasureDraft {
+  if (typeof input === 'string' || typeof input === 'number') {
+    const text = String(input).trim();
+    const range = text.match(/^([+-]?(?:\d[\d.,]*|[.,]\d+))\s*(?:a|até|to|[-–—])\s*([+-]?(?:\d[\d.,]*|[.,]\d+))(?:\s*(?:km\/l|g\/km))?$/i);
+    if (range) {
+      const minValue = numericDraftText(range[1]);
+      const maxValue = numericDraftText(range[2]);
+      if (parseDecimalNumber(minValue) !== undefined && parseDecimalNumber(maxValue) !== undefined) {
+        return { value: '', minValue, maxValue };
+      }
+    }
+    const value = numericDraftText(input);
+    return { value, minValue: '', maxValue: '' };
+  }
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    const record = input as Record<string, unknown>;
+    return {
+      value: numericDraftText(record.value),
+      minValue: numericDraftText(record.minValue),
+      maxValue: numericDraftText(record.maxValue),
+    };
+  }
+  return createBlankNumericMeasure();
+}
+
 export function canonicalPageUrl(value: string): string | undefined {
   const clean = cleanText(value);
   if (!clean) return undefined;
@@ -63,6 +112,16 @@ export function createBlankMeasurements() {
   return { length: '', width: '', height: '', wheelbase: '', cargoVolume: '', fuelCapacity: '' };
 }
 
+export function createBlankNumericMeasure(): NumericMeasureDraft { return { value: '', minValue: '', maxValue: '' }; }
+
+export function createBlankConsumptionValues(): ConsumptionValues {
+  return { urbanGasoline: createBlankNumericMeasure(), highwayGasoline: createBlankNumericMeasure(), urbanEthanol: createBlankNumericMeasure(), highwayEthanol: createBlankNumericMeasure() };
+}
+
+export function createBlankSharedVehicleProperties(): SharedVehicleProperties {
+  return { fuelType: '', driveWheelConfiguration: '', vehicleTransmission: '', numberOfDoors: '', seatingCapacity: '', numberOfAirbags: '' };
+}
+
 export function createBlankFeature(): FeatureEntry { return { id: createId(), name: '', value: '' }; }
 
 function createFeatureEntries(catalog: readonly FeatureDefinition[]): FeatureEntry[] {
@@ -80,9 +139,17 @@ function addMissingFeatureEntries(entries: FeatureEntry[], catalog: readonly Fea
 export function ensureFeatureCatalog(data: PdpFormData): PdpFormData {
   return {
     ...data,
+    sharedVehicleProperties: { ...createBlankSharedVehicleProperties(), ...data.sharedVehicleProperties },
     sharedFeatures: addMissingFeatureEntries(data.sharedFeatures, SHARED_FEATURE_CATALOG),
     versions: data.versions.map((version) => ({
       ...version,
+      consumption: {
+        urbanGasoline: normalizeNumericMeasure(version.consumption?.urbanGasoline),
+        highwayGasoline: normalizeNumericMeasure(version.consumption?.highwayGasoline),
+        urbanEthanol: normalizeNumericMeasure(version.consumption?.urbanEthanol),
+        highwayEthanol: normalizeNumericMeasure(version.consumption?.highwayEthanol),
+      },
+      emissionsCO2: normalizeNumericMeasure(version.emissionsCO2),
       features: addMissingFeatureEntries(version.features, VERSION_FEATURE_CATALOG),
     })),
   };
@@ -92,8 +159,8 @@ export function createBlankVersion(name = ''): VehicleVersion {
   return {
     id: createId(), name, configuration: '', modelDate: '', bodyType: '', fuelType: '', driveWheelConfiguration: '',
     transmission: '', numberOfDoors: '', seatingCapacity: '', numberOfAirbags: '', exteriorColors: [], interiorColors: [],
-    measurements: createBlankMeasurements(), consumption: { urbanGasoline: '', highwayGasoline: '', urbanEthanol: '', highwayEthanol: '' },
-    emissionsCO2: '', engineType: '', numberOfCylinders: '', engineDisplacement: '', powerOutput: '',
+    measurements: createBlankMeasurements(), consumption: createBlankConsumptionValues(),
+    emissionsCO2: createBlankNumericMeasure(), engineType: '', numberOfCylinders: '', engineDisplacement: '', powerOutput: '',
     powerGasoline: '', powerEthanol: '', torque: '', torqueGasoline: '', torqueEthanol: '', features: createFeatureEntries(VERSION_FEATURE_CATALOG),
   };
 }
@@ -123,7 +190,7 @@ export function createBlankData(): PdpFormData {
     manufacturer: { name: '', url: '', email: '', telephone: '', logoUrl: '', sameAs: [] },
     brand: { name: '', url: '', sameAs: [] },
     modelName: '', modelYear: '', category: '', bodyType: '', modelDescription: '',
-    commonExteriorColors: [], commonInteriorColors: [], sharedMeasurements: createBlankMeasurements(), sharedFeatures: createFeatureEntries(SHARED_FEATURE_CATALOG),
+    commonExteriorColors: [], commonInteriorColors: [], sharedMeasurements: createBlankMeasurements(), sharedVehicleProperties: createBlankSharedVehicleProperties(), sharedFeatures: createFeatureEntries(SHARED_FEATURE_CATALOG),
     versions: [createBlankVersion()], offers: [], breadcrumbs: [], faqs: [], images: [], videos: [],
   };
 }

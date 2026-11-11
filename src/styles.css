@@ -203,6 +203,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .version-card__content .field-row { gap: 8px; }
 .version-card__content .field__label { font-size: 9px; }
 .version-card__content .field input { min-height: 32px; font-size: 9px; }
+.numeric-measure-list { display: grid; gap: 9px; margin: 0 0 13px; }
+.numeric-measure { padding: 9px; border: 1px solid #343637; border-radius: 6px; background: #181919; }
+.numeric-measure__title { display: flex; align-items: baseline; gap: 7px; margin-bottom: 7px; color: #e0ded8; font-size: 10px; font-weight: 600; }
+.numeric-measure__title span { color: var(--muted-2); font-family: var(--mono); font-size: 8px; font-weight: 400; }
+.numeric-measure__fields { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.numeric-measure__fields .field__hint { font-size: 8px; }
 .media-card > summary { border-bottom: 1px solid #303334; }
 .media-card__body { padding: 10px; }
 .media-card__body > .field { margin-bottom: 11px; }

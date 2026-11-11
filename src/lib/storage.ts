@@ -1,25 +1,33 @@
 import type { ProjectRecord } from '../model/types';
-import { ensureFeatureCatalog } from './ids';
+import { createBlankSharedVehicleProperties, ensureFeatureCatalog, normalizeNumericMeasure } from './ids';
 
 const STORAGE_KEY = 'pdp-schema-projects-v1';
-const PROJECT_FILE_VERSION = 1;
+const PROJECT_FILE_VERSION = 2;
+const SUPPORTED_ARCHIVE_VERSIONS = new Set([1, PROJECT_FILE_VERSION]);
 
-export interface ProjectArchive { format: 'pdp-schema-projects'; version: 1; projects: ProjectRecord[] }
+export interface ProjectArchive { format: 'pdp-schema-projects'; version: 1 | 2; projects: ProjectRecord[] }
 
 type UnknownRecord = Record<string, unknown>;
 function isRecord(value: unknown): value is UnknownRecord { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
 function hasStringFields(value: unknown, keys: string[]): value is UnknownRecord { return isRecord(value) && keys.every((key) => typeof value[key] === 'string'); }
 function isStringArray(value: unknown): value is string[] { return Array.isArray(value) && value.every((entry) => typeof entry === 'string'); }
 function isFeature(value: unknown): boolean { return hasStringFields(value, ['id', 'name', 'value']); }
+function isNumericMeasure(value: unknown): boolean { return hasStringFields(value, ['value', 'minValue', 'maxValue']); }
+function isConsumption(value: unknown): boolean {
+  return isRecord(value) && ['urbanGasoline', 'highwayGasoline', 'urbanEthanol', 'highwayEthanol'].every((key) => isNumericMeasure(value[key]));
+}
 function isMeasurements(value: unknown): boolean { return hasStringFields(value, ['length', 'width', 'height', 'wheelbase', 'cargoVolume', 'fuelCapacity']); }
+function isSharedVehicleProperties(value: unknown): boolean {
+  return hasStringFields(value, ['fuelType', 'driveWheelConfiguration', 'vehicleTransmission', 'numberOfDoors', 'seatingCapacity', 'numberOfAirbags']);
+}
 function isOrganization(value: unknown): boolean {
   return hasStringFields(value, ['name', 'url', 'email', 'telephone', 'logoUrl']) && isStringArray(value.sameAs);
 }
 function isBrand(value: unknown): boolean { return hasStringFields(value, ['name', 'url']) && isStringArray(value.sameAs); }
 function isVersion(value: unknown): boolean {
-  if (!hasStringFields(value, ['id', 'name', 'configuration', 'modelDate', 'bodyType', 'fuelType', 'driveWheelConfiguration', 'transmission', 'numberOfDoors', 'seatingCapacity', 'numberOfAirbags', 'emissionsCO2', 'engineType', 'numberOfCylinders', 'engineDisplacement', 'powerOutput', 'powerGasoline', 'powerEthanol', 'torque', 'torqueGasoline', 'torqueEthanol'])) return false;
-  return isStringArray(value.exteriorColors) && isStringArray(value.interiorColors) && isMeasurements(value.measurements)
-    && hasStringFields(value.consumption, ['urbanGasoline', 'highwayGasoline', 'urbanEthanol', 'highwayEthanol'])
+  if (!hasStringFields(value, ['id', 'name', 'configuration', 'modelDate', 'bodyType', 'fuelType', 'driveWheelConfiguration', 'transmission', 'numberOfDoors', 'seatingCapacity', 'numberOfAirbags', 'engineType', 'numberOfCylinders', 'engineDisplacement', 'powerOutput', 'powerGasoline', 'powerEthanol', 'torque', 'torqueGasoline', 'torqueEthanol'])) return false;
+  return isNumericMeasure(value.emissionsCO2) && isStringArray(value.exteriorColors) && isStringArray(value.interiorColors)
+    && isMeasurements(value.measurements) && isConsumption(value.consumption)
     && Array.isArray(value.features) && value.features.every(isFeature);
 }
 function isOffer(value: unknown): boolean { return hasStringFields(value, ['id', 'scope', 'name', 'price', 'priceCurrency', 'url', 'availability', 'itemCondition', 'priceValidUntil', 'sellerName']); }
@@ -37,7 +45,8 @@ function isData(value: unknown): boolean {
   if (!hasStringFields(value, ['pageUrl', 'siteUrl', 'siteName', 'language', 'pageTitle', 'pageDescription', 'modelName', 'modelYear', 'category', 'bodyType', 'modelDescription'])) return false;
   return isOrganization(value.organization) && isOrganization(value.manufacturer) && isBrand(value.brand)
     && isStringArray(value.commonExteriorColors) && isStringArray(value.commonInteriorColors)
-    && isMeasurements(value.sharedMeasurements) && Array.isArray(value.sharedFeatures) && value.sharedFeatures.every(isFeature)
+    && isMeasurements(value.sharedMeasurements) && isSharedVehicleProperties(value.sharedVehicleProperties)
+    && Array.isArray(value.sharedFeatures) && value.sharedFeatures.every(isFeature)
     && Array.isArray(value.versions) && value.versions.every(isVersion)
     && Array.isArray(value.offers) && value.offers.every(isOffer)
     && Array.isArray(value.breadcrumbs) && value.breadcrumbs.every(isBreadcrumb)
@@ -50,6 +59,33 @@ function isProject(value: unknown): value is ProjectRecord {
   return typeof value.id === 'string' && Boolean(value.id.trim()) && isData(value.data);
 }
 
+function migrateProject(value: unknown): ProjectRecord | undefined {
+  if (!hasStringFields(value, ['id', 'name', 'createdAt', 'updatedAt']) || typeof value.id !== 'string' || !value.id.trim() || !isRecord(value.data)) return undefined;
+  const rawData = value.data;
+  const rawVersions = rawData.versions;
+  if (!Array.isArray(rawVersions)) return undefined;
+  const rawShared = isRecord(rawData.sharedVehicleProperties) ? rawData.sharedVehicleProperties : {};
+  const sharedDefaults = createBlankSharedVehicleProperties();
+  const sharedVehicleProperties = Object.fromEntries(Object.keys(sharedDefaults).map((key) => [key, typeof rawShared[key] === 'string' ? rawShared[key] : sharedDefaults[key as keyof typeof sharedDefaults]]));
+  const versions = rawVersions.map((entry: unknown) => {
+    if (!isRecord(entry)) return entry;
+    const consumption = isRecord(entry.consumption) ? entry.consumption : {};
+    return {
+      ...entry,
+      emissionsCO2: normalizeNumericMeasure(entry.emissionsCO2),
+      consumption: {
+        urbanGasoline: normalizeNumericMeasure(consumption.urbanGasoline),
+        highwayGasoline: normalizeNumericMeasure(consumption.highwayGasoline),
+        urbanEthanol: normalizeNumericMeasure(consumption.urbanEthanol),
+        highwayEthanol: normalizeNumericMeasure(consumption.highwayEthanol),
+      },
+    };
+  });
+  const candidate: unknown = { ...value, data: { ...rawData, sharedVehicleProperties, versions } };
+  if (!isProject(candidate)) return undefined;
+  return { ...candidate, data: ensureFeatureCatalog(candidate.data) };
+}
+
 export function loadProjects(): ProjectRecord[] {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
@@ -57,11 +93,13 @@ export function loadProjects(): ProjectRecord[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const seen = new Set<string>();
-    const projects = parsed.filter((entry): entry is ProjectRecord => {
-      if (!isProject(entry) || seen.has(entry.id)) return false;
-      seen.add(entry.id); return true;
-    });
-    return projects.map((project) => ({ ...project, data: ensureFeatureCatalog(project.data) }));
+    const projects: ProjectRecord[] = [];
+    for (const entry of parsed) {
+      const project = migrateProject(entry);
+      if (!project || seen.has(project.id)) continue;
+      seen.add(project.id); projects.push(project);
+    }
+    return projects;
   } catch { return []; }
 }
 
@@ -82,20 +120,20 @@ export function makeProjectArchive(projects: ProjectRecord[]): ProjectArchive {
 
 export function parseProjectArchive(text: string): ProjectRecord[] {
   const parsed: unknown = JSON.parse(text);
-  if (!parsed || typeof parsed !== 'object') throw new Error('Arquivo de projeto inválido.');
-  const archive = parsed as Partial<ProjectArchive>;
-  if (archive.format !== 'pdp-schema-projects' || archive.version !== PROJECT_FILE_VERSION || !Array.isArray(archive.projects)) {
+  if (!isRecord(parsed) || parsed.format !== 'pdp-schema-projects' || typeof parsed.version !== 'number'
+    || !SUPPORTED_ARCHIVE_VERSIONS.has(parsed.version) || !Array.isArray(parsed.projects)) {
     throw new Error('Formato/versão de backup não reconhecido.');
   }
-  if (!archive.projects.length) throw new Error('O arquivo de backup não contém projetos.');
-  const projects = archive.projects.filter(isProject);
-  if (projects.length !== archive.projects.length) throw new Error('O backup contém projeto(s) com estrutura de dados inválida.');
+  if (!parsed.projects.length) throw new Error('O arquivo de backup não contém projetos.');
+  const projects = parsed.projects.map(migrateProject);
+  if (projects.some((project) => !project)) throw new Error('O backup contém projeto(s) com estrutura de dados inválida.');
+  const migrated = projects as ProjectRecord[];
   const ids = new Set<string>();
-  for (const project of projects) {
+  for (const project of migrated) {
     if (ids.has(project.id)) throw new Error('O backup contém IDs de projeto repetidos.');
     ids.add(project.id);
   }
-  return projects.map((project) => ({ ...project, data: ensureFeatureCatalog(project.data) }));
+  return migrated;
 }
 
 export function downloadText(filename: string, text: string, mime = 'application/json;charset=utf-8'): void {

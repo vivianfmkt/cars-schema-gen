@@ -78,3 +78,20 @@ A extração do `additionalProperty` de `ProductGroup` e das cinco entidades `Ve
 Os valores novos começam vazios e independem por versão. A interface organiza o catálogo por categoria, facilita valores Sim/Não e permite texto técnico descritivo; os itens personalizados continuam disponíveis para qualquer propriedade fora do TXT. O motor omite itens sem valor, conserva a associação ao `ProductGroup`/`Vehicle` adequada e evita propriedades duplicadas. Projetos no armazenamento local e backups antigos são migrados apenas adicionando campos ausentes vazios, preservando respostas e propriedades personalizadas existentes.
 
 A implementação preserva a arquitetura React/TypeScript já aprovada, adicionando um módulo de catálogo reutilizável, UI categorizada e regressões de inventário, serialização, migração e créditos. O dado de autoria será um link externo acessível, sem alterar os schemas da PDP.
+
+
+## Atualização solicitada — consumo, emissões e especificações comuns (11/11/2026)
+
+Os quatro consumos (urbano/rodoviário por gasolina/etanol) e emissões de CO₂ passam de strings numéricas para entradas numéricas estruturadas que permitem valor pontual ou intervalo. Valor pontual será serializado como número JSON; intervalo como `QuantitativeValue` com `minValue` e `maxValue` numéricos. Consumo manterá `unitText: "km/L"` e contexto no `name`; CO₂ em faixa usará `unitText: "g/km"`. A interface oferecerá valor exato ou par mínimo/máximo, documentará o uso de ponto decimal e a importação de valores antigos aceitará vírgula local e os normalizará. A validação rejeitará entradas parciais/ambíguas, números inválidos e mínimo maior que máximo, sem penalizar campos vazios.
+
+A seção comum do modelo terá seis campos pré-carregados: `fuelType`, `driveWheelConfiguration`, `vehicleTransmission`, `numberOfDoors`, `seatingCapacity` e `numberOfAirbags`. Como as propriedades descrevem `Vehicle` e não devem ser serializadas como propriedades incompatíveis de `ProductGroup`, os valores comuns serão aplicados às entidades `Vehicle` geradas para cada versão; um valor de versão específica prevalece. Portas, lugares e airbags são emitidos numericamente quando numéricos; combustível, tração e transmissão permanecem textuais. Valores vazios são omitidos. Projetos locais e backups já salvos serão migrados sem perder especificações e dados existentes; o formato exportado/importado será versionado com compatibilidade para v1.
+
+A implementação altera tipos, factories/migração, controles de formulário, validação, geração e testes existentes, sem alterar a direção visual, a persistência local ou os demais schemas.
+
+
+## Fontes Schema.org consultadas para a atualização numérica
+
+`QuantitativeValue` define `value` como número para pontos e `minValue`/`maxValue` como números para intervalos; a documentação pede ponto (`.`) como separador decimal. `fuelConsumption` espera `QuantitativeValue` e indica `unitText` para km/L. `emissionsCO2` espera `Number`, mas documenta que, quando usado com `QuantitativeValue`, a unidade `g/km` deve ir em `unitText`; portanto o ponto será número, e o intervalo quantitativo terá `minValue`, `maxValue` e `unitText`. As seis propriedades compartilhadas são emitidas nos nós `Vehicle` concretos, com valores numéricos para portas/lugares/airbags quando informados numericamente.
+
+Fontes oficiais: [QuantitativeValue](https://schema.org/QuantitativeValue), [fuelConsumption](https://schema.org/fuelConsumption), [emissionsCO2](https://schema.org/emissionsCO2), [Vehicle](https://schema.org/Vehicle) e [ProductGroup](https://schema.org/ProductGroup).
+Os campos de consumo e CO₂ usam um parser decimal contextual: um único ponto é sempre separador decimal (`11.500` → `11.5`), enquanto vírgula decimal localizada também é aceita para migração. Isso não altera a interpretação existente de campos legados como dimensões, em que `4.304` pode representar agrupamento de milhares. A migração também reconhece intervalos textuais com hífen junto ou separado dos valores, travessões e `a`/`até`.

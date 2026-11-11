@@ -51,3 +51,20 @@
 - [x] Manter controles tipados já existentes para Motorização, potências, torques, transmissão, tração e airbags, evitando duplicá-los no catálogo ou no JSON-LD.
 - [x] Manter a possibilidade de adicionar e excluir propriedades personalizadas que não estejam no TXT, tanto comuns quanto por versão.
 - [x] Ao abrir projetos locais e backups da v1, adicionar somente propriedades de catálogo ausentes com valores vazios; preservar respostas existentes, IDs/dados das entradas customizadas e não escrever informações inventadas no JSON-LD.
+
+
+## Atualização solicitada — consumo, emissões e propriedades compartilhadas (11/11/2026)
+
+### Consumo e emissões numéricas — Concluído
+
+- [x] Os campos de consumo urbano/rodoviário para gasolina/etanol e emissões de CO₂ aceitarão números e intervalos numéricos, não faixas armazenadas ou emitidas como texto. A UI deverá permitir um valor pontual ou os limites mínimo e máximo; no JSON-LD, valores pontuais serão números JSON e intervalos usarão `minValue`/`maxValue` como números JSON, dentro da representação quantitativa compatível com Schema.org.
+- [x] Os consumos continuarão identificando o contexto (urbano/rodoviário e combustível) e a unidade `km/L`; emissões manterão a unidade `g/km`. A interface indicará uso de ponto decimal (`.`); valores localizados/v1 com vírgula deverão ser normalizados corretamente na migração.
+- [x] Campos numéricos opcionais vazios continuarão ausentes do JSON-LD. Quando um intervalo for iniciado, os limites serão validados para números finitos, mínimo não maior que máximo e entrada completa; erros/pêndencias serão exibidos antes da exportação.
+
+### Propriedades pré-carregadas comuns do modelo — Concluído
+
+- [x] Na seção “Modelo e dados compartilhados”, pré-carregar estes campos Schema.org: combustível `fuelType`; configuração das rodas motrizes `driveWheelConfiguration`; transmissão do veículo `vehicleTransmission`; número de portas `numberOfDoors`; número de lugares `seatingCapacity`; número de airbags `numberOfAirbags`.
+- [x] Valores comuns serão aplicados às entidades `Vehicle` correspondentes a todas as versões. Valores preenchidos especificamente numa versão substituirão o valor comum apenas nessa versão; não haverá duplicação de propriedades e campos vazios não serão emitidos.
+- [x] Os valores de `numberOfDoors`, `seatingCapacity` e `numberOfAirbags` serão serializados como números JSON quando numéricos; os demais permanecerão texto conforme o tipo Schema.org.
+- [x] Manter compatibilidade com projetos locais e backups já existentes: migrar valores pontuais antigos e campos comuns ausentes sem apagar dados, aceitar vírgula decimal legada e preservar valores que precisem de correção para serem mostrados pela validação.
+- [x] A versão de backup exportada/importada identificará a nova estrutura, continuará aceitando arquivos v1 e migrará seus dados para o formato atual sem perda.

@@ -1,5 +1,5 @@
-import type { FeatureEntry, JsonLdDocument, PdpFormData, ProjectRecord, SchemaEntity, ValidationIssue } from '../model/types';
-import { cleanText, createId, isHttpUrl, isPlaceholder, parseLocalizedNumber } from './ids';
+import type { FeatureEntry, JsonLdDocument, NumericMeasureDraft, PdpFormData, ProjectRecord, SchemaEntity, ValidationIssue } from '../model/types';
+import { cleanText, createId, isHttpUrl, isPlaceholder, parseDecimalNumber, parseLocalizedNumber } from './ids';
 import { featureNameKey, isCatalogFeatureName } from './feature-catalog';
 
 function issue(severity: ValidationIssue['severity'], code: string, message: string, section: string, field?: string, entityId?: string): ValidationIssue {
@@ -23,6 +23,37 @@ function numericField(issues: ValidationIssue[], value: string, label: string, s
     issues.push(issue('error', 'invalid-number-range', `${label}: valor fora do intervalo permitido.`, section, field, entityId));
   }
 }
+
+function numericMeasureField(issues: ValidationIssue[], measure: NumericMeasureDraft, label: string, section: string, field: string, mode: 'positive' | 'nonnegative', entityId?: string) {
+  const exact = hasText(measure.value); const hasMin = hasText(measure.minValue); const hasMax = hasText(measure.maxValue);
+  if (!exact && !hasMin && !hasMax) return;
+  if (exact && (hasMin || hasMax)) {
+    issues.push(issue('error', 'ambiguous-numeric-measure', `${label}: informe o valor exato ou a faixa mínimo/máximo, não ambos.`, section, field, entityId));
+    return;
+  }
+  const checkMeasureNumber = (value: string, valueLabel: string, valueField: string): number | undefined => {
+    const number = parseDecimalNumber(value);
+    if (number === undefined) {
+      issues.push(issue('error', 'invalid-number', `${valueLabel}: informe um número válido.`, section, valueField, entityId));
+      return undefined;
+    }
+    if ((mode === 'positive' && number <= 0) || (mode === 'nonnegative' && number < 0)) {
+      issues.push(issue('error', 'invalid-number-range', `${valueLabel}: valor fora do intervalo permitido.`, section, valueField, entityId));
+    }
+    return number;
+  };
+  if (exact) { checkMeasureNumber(measure.value, label, field); return; }
+  if (hasMin !== hasMax) {
+    issues.push(issue('error', 'incomplete-numeric-range', `${label}: preencha mínimo e máximo para formar uma faixa completa.`, section, field, entityId));
+    return;
+  }
+  const minValue = checkMeasureNumber(measure.minValue, `${label} mínimo`, `${field}.minValue`);
+  const maxValue = checkMeasureNumber(measure.maxValue, `${label} máximo`, `${field}.maxValue`);
+  if (minValue !== undefined && maxValue !== undefined && minValue > maxValue) {
+    issues.push(issue('error', 'invalid-numeric-range', `${label}: mínimo não pode ser maior que máximo.`, section, field, entityId));
+  }
+}
+
 function urlField(issues: ValidationIssue[], value: string, label: string, section: string, field: string, entityId?: string) {
   if (!hasText(value)) return;
   if (!isHttpUrl(value)) issues.push(issue('error', 'invalid-url', `${label}: use uma URL HTTP ou HTTPS válida, sem credenciais.`, section, field, entityId));
@@ -78,6 +109,9 @@ export function validateProject(data: PdpFormData): ValidationIssue[] {
   for (const [key, label] of [['length', 'Comprimento comum'], ['width', 'Largura comum'], ['height', 'Altura comum'], ['wheelbase', 'Entre-eixos comum'], ['cargoVolume', 'Volume comum do porta-malas'], ['fuelCapacity', 'Capacidade comum do tanque']] as const) {
     numericField(issues, data.sharedMeasurements[key], label, 'model', `sharedMeasurements.${key}`, 'positive');
   }
+  numericField(issues, data.sharedVehicleProperties.numberOfDoors, 'Número comum de portas', 'model', 'sharedVehicleProperties.numberOfDoors', 'integer');
+  numericField(issues, data.sharedVehicleProperties.seatingCapacity, 'Número comum de lugares', 'model', 'sharedVehicleProperties.seatingCapacity', 'integer');
+  numericField(issues, data.sharedVehicleProperties.numberOfAirbags, 'Número comum de airbags', 'model', 'sharedVehicleProperties.numberOfAirbags', 'integer-nonnegative');
 
   const seenInputIds = new Set<string>();
   const checkInputId = (entry: { id: string }, section: string) => {
@@ -114,12 +148,12 @@ export function validateProject(data: PdpFormData): ValidationIssue[] {
     numericField(issues, version.torque, 'Torque', section, 'torque', 'positive', version.id);
     numericField(issues, version.torqueGasoline, 'Torque com gasolina', section, 'torqueGasoline', 'positive', version.id);
     numericField(issues, version.torqueEthanol, 'Torque com etanol', section, 'torqueEthanol', 'positive', version.id);
-    numericField(issues, version.emissionsCO2, 'Emissões de CO₂', section, 'emissionsCO2', 'nonnegative', version.id);
+    numericMeasureField(issues, version.emissionsCO2, 'Emissões de CO₂', section, 'emissionsCO2', 'nonnegative', version.id);
     for (const [key, label] of [['length', 'Comprimento'], ['width', 'Largura'], ['height', 'Altura'], ['wheelbase', 'Entre-eixos'], ['cargoVolume', 'Volume do porta-malas'], ['fuelCapacity', 'Capacidade do tanque']] as const) {
       numericField(issues, version.measurements[key], label, section, `measurements.${key}`, 'positive', version.id);
     }
     for (const [key, label] of [['urbanGasoline', 'Consumo urbano (gasolina)'], ['highwayGasoline', 'Consumo rodoviário (gasolina)'], ['urbanEthanol', 'Consumo urbano (etanol)'], ['highwayEthanol', 'Consumo rodoviário (etanol)']] as const) {
-      numericField(issues, version.consumption[key], label, section, `consumption.${key}`, 'positive', version.id);
+      numericMeasureField(issues, version.consumption[key], label, section, `consumption.${key}`, 'positive', version.id);
     }
     const seenColors = new Set<string>();
     [...data.commonExteriorColors, ...data.commonInteriorColors, ...version.exteriorColors, ...version.interiorColors].filter(hasText).forEach((color) => {

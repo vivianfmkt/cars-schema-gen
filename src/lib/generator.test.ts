@@ -82,7 +82,7 @@ describe('generateSchema', () => {
     version.measurements.cargoVolume = '393';
     version.engineDisplacement = '999';
     version.powerOutput = '115,5';
-    version.consumption.urbanGasoline = '11,5';
+    version.consumption.urbanGasoline.value = '11,5';
     version.torque = '18,9';
     const result = generateSchema(data);
     const product = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
@@ -155,8 +155,8 @@ describe('generateSchema', () => {
 
   it('não publica placeholders, mostra pendências e bloqueia URL inválida', () => {
     const data = baseData();
-    data.versions[0].emissionsCO2 = 'PREENCHER_COM_VALORES';
-    data.versions[0].consumption.urbanGasoline = 'PREENCHER';
+    data.versions[0].emissionsCO2.value = 'PREENCHER_COM_VALORES';
+    data.versions[0].consumption.urbanGasoline.value = 'PREENCHER';
     const result = generateSchema(data);
     expect(result.json).not.toContain('PREENCHER');
     expect(result.issues.some((entry) => entry.severity === 'pending')).toBe(true);
@@ -341,5 +341,76 @@ describe('deduplicação de propriedades adicionais', () => {
     expect(sound).toEqual([{ '@type': 'PropertyValue', name: 'Som premium', value: '10 alto-falantes' }]);
     expect(result.issues.some((entry) => entry.code === 'typed-property-override' && entry.severity === 'warning')).toBe(true);
     expect(result.issues.some((entry) => entry.code === 'duplicate-feature-name' && entry.severity === 'warning')).toBe(true);
+  });
+});
+
+describe('medidas numéricas de consumo e emissões', () => {
+  it('serializa valores pontuais como números e faixas com minValue/maxValue numéricos', () => {
+    const data = baseData();
+    const first = data.versions[0];
+    const second = createBlankVersion('Touring');
+    first.consumption.urbanGasoline = { value: '', minValue: '11,2', maxValue: '11.5' };
+    first.emissionsCO2.value = '120,5';
+    second.consumption.highwayGasoline.value = '12,4';
+    second.emissionsCO2 = { value: '', minValue: '118', maxValue: '123' };
+    data.versions = [first, second];
+
+    const result = generateSchema(data);
+    const vehicles = result.document['@graph'].filter((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'));
+    const urban = (vehicles[0].fuelConsumption as { name: string; value?: number; minValue?: number; maxValue?: number }[])[0];
+    expect(result.canExport).toBe(true);
+    expect(urban).toMatchObject({ minValue: 11.2, maxValue: 11.5, unitText: 'km/L' });
+    expect(urban.value).toBeUndefined();
+    expect(vehicles[0].emissionsCO2).toBe(120.5);
+    const secondConsumption = vehicles[1].fuelConsumption as { value?: number; minValue?: number; maxValue?: number }[];
+    expect(secondConsumption[0].value).toBe(12.4);
+    expect(vehicles[1].emissionsCO2).toEqual({ '@type': 'QuantitativeValue', minValue: 118, maxValue: 123, unitText: 'g/km' });
+    expect(validateGraph(result.document).filter((entry) => entry.severity === 'error')).toHaveLength(0);
+  });
+
+  it('trata um único ponto como separador decimal em consumo e CO₂', () => {
+    const data = baseData();
+    data.versions[0].consumption.urbanGasoline.value = '11.500';
+    data.versions[0].emissionsCO2.value = '120.500';
+    const result = generateSchema(data);
+    const vehicle = result.document['@graph'].find((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'))!;
+
+    expect(result.canExport).toBe(true);
+    expect((vehicle.fuelConsumption as { value: number }[])[0].value).toBe(11.5);
+    expect(vehicle.emissionsCO2).toBe(120.5);
+  });
+
+  it('bloqueia faixa incompleta, mínimo maior que máximo e modo exato combinado com faixa', () => {
+    const data = baseData();
+    data.versions[0].consumption.urbanGasoline.minValue = '12';
+    expect(generateSchema(data).issues.some((entry) => entry.code === 'incomplete-numeric-range')).toBe(true);
+    data.versions[0].consumption.urbanGasoline.maxValue = '10';
+    expect(generateSchema(data).issues.some((entry) => entry.code === 'invalid-numeric-range')).toBe(true);
+    data.versions[0].consumption.urbanGasoline.value = '11';
+    expect(generateSchema(data).issues.some((entry) => entry.code === 'ambiguous-numeric-measure')).toBe(true);
+    expect(generateSchema(data).canExport).toBe(false);
+  });
+});
+
+describe('propriedades técnicas compartilhadas do modelo', () => {
+  it('herda os seis campos para cada Vehicle e permite substituição específica, sem propriedades duplicadas', () => {
+    const data = baseData();
+    const first = data.versions[0];
+    const second = createBlankVersion('Touring');
+    data.versions = [first, second];
+    data.sharedVehicleProperties = {
+      fuelType: 'Flex', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática',
+      numberOfDoors: '4', seatingCapacity: '5', numberOfAirbags: '6',
+    };
+    first.fuelType = 'Híbrido'; first.numberOfAirbags = '8';
+
+    const result = generateSchema(data);
+    const vehicles = result.document['@graph'].filter((node) => Array.isArray(node['@type']) && node['@type'].includes('Vehicle'));
+    const group = result.document['@graph'].find((node) => node['@type'] === 'ProductGroup')!;
+    expect(vehicles[0]).toMatchObject({ fuelType: 'Híbrido', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática', numberOfDoors: 4, seatingCapacity: 5, numberOfAirbags: 8 });
+    expect(vehicles[1]).toMatchObject({ fuelType: 'Flex', driveWheelConfiguration: 'Dianteira', vehicleTransmission: 'Automática', numberOfDoors: 4, seatingCapacity: 5, numberOfAirbags: 6 });
+    expect(group).not.toHaveProperty('fuelType');
+    expect(group.variesBy).toContain('fuelType');
+    expect(validateGraph(result.document).filter((entry) => entry.severity === 'error')).toHaveLength(0);
   });
 });

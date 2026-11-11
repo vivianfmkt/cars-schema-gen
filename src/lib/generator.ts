@@ -1,5 +1,5 @@
-import type { GenerationResult, ImageDraft, JsonLdDocument, OfferDraft, PdpFormData, SchemaEntity, ValidationIssue, VehicleVersion, VideoDraft } from '../model/types';
-import { canonicalPageUrl, cleanText, isHttpUrl, parseLocalizedNumber, reference, slugify } from './ids';
+import type { GenerationResult, ImageDraft, JsonLdDocument, NumericMeasureDraft, OfferDraft, PdpFormData, SchemaEntity, ValidationIssue, VehicleVersion, VideoDraft } from '../model/types';
+import { canonicalPageUrl, cleanText, isHttpUrl, parseDecimalNumber, parseLocalizedNumber, reference, slugify } from './ids';
 import { featureNameKey } from './feature-catalog';
 import { validateGraph, validateProject } from './validation';
 
@@ -27,6 +27,25 @@ function quantitative(value: string, unit: { unitCode?: string; unitText?: strin
   const number = parseLocalizedNumber(value);
   if (number === undefined) return undefined;
   return compact({ '@type': 'QuantitativeValue', value: number, ...unit });
+}
+
+function numericMeasure(value: NumericMeasureDraft, unit: { unitCode?: string; unitText?: string }): Record<string, unknown> | undefined {
+  const exact = parseDecimalNumber(value.value);
+  if (exact !== undefined) return compact({ '@type': 'QuantitativeValue', value: exact, ...unit });
+  const minValue = parseDecimalNumber(value.minValue);
+  const maxValue = parseDecimalNumber(value.maxValue);
+  if (minValue !== undefined && maxValue !== undefined) return compact({ '@type': 'QuantitativeValue', minValue, maxValue, ...unit });
+  return undefined;
+}
+
+function emissionsValue(value: NumericMeasureDraft): number | Record<string, unknown> | undefined {
+  const exact = parseDecimalNumber(value.value);
+  if (exact !== undefined) return exact;
+  const minValue = parseDecimalNumber(value.minValue);
+  const maxValue = parseDecimalNumber(value.maxValue);
+  return minValue !== undefined && maxValue !== undefined
+    ? compact({ '@type': 'QuantitativeValue', minValue, maxValue, unitText: 'g/km' })
+    : undefined;
 }
 
 function propertyValue(name: string, value: string): Record<string, unknown> | undefined {
@@ -139,11 +158,18 @@ function versionId(base: string, version: VehicleVersion): string {
   return baseId(base, `version-${slugify(version.name || version.configuration)}-${version.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'item'}`);
 }
 
-function calculateVariesBy(versions: VehicleVersion[]): string[] {
-  const candidates: [keyof VehicleVersion, string][] = [
-    ['configuration', 'vehicleConfiguration'], ['fuelType', 'fuelType'], ['transmission', 'vehicleTransmission'], ['engineType', 'engineType'],
+function calculateVariesBy(data: PdpFormData, versions: VehicleVersion[]): string[] {
+  const candidates: [string, string, (version: VehicleVersion) => string][] = [
+    ['configuration', 'vehicleConfiguration', (version) => trim(version.configuration)],
+    ['fuelType', 'fuelType', (version) => trim(version.fuelType) || trim(data.sharedVehicleProperties.fuelType)],
+    ['driveWheelConfiguration', 'driveWheelConfiguration', (version) => trim(version.driveWheelConfiguration) || trim(data.sharedVehicleProperties.driveWheelConfiguration)],
+    ['transmission', 'vehicleTransmission', (version) => trim(version.transmission) || trim(data.sharedVehicleProperties.vehicleTransmission)],
+    ['numberOfDoors', 'numberOfDoors', (version) => trim(version.numberOfDoors) || trim(data.sharedVehicleProperties.numberOfDoors)],
+    ['seatingCapacity', 'seatingCapacity', (version) => trim(version.seatingCapacity) || trim(data.sharedVehicleProperties.seatingCapacity)],
+    ['numberOfAirbags', 'numberOfAirbags', (version) => trim(version.numberOfAirbags) || trim(data.sharedVehicleProperties.numberOfAirbags)],
+    ['engineType', 'engineType', (version) => trim(version.engineType)],
   ];
-  const result = candidates.filter(([key]) => new Set(versions.map((version) => trim(String(version[key]))).filter(Boolean)).size > 1).map(([, property]) => property);
+  const result = candidates.filter(([, , value]) => new Set(versions.map(value).filter(Boolean)).size > 1).map(([, property]) => property);
   const colors = versions.map((version) => uniqueStrings(version.exteriorColors).join('|'));
   if (new Set(colors).size > 1) result.push('color');
   return result.length ? result : ['vehicleConfiguration'];
@@ -270,7 +296,7 @@ export function generateSchema(data: PdpFormData): GenerationResult {
       '@type': 'ProductGroup', '@id': groupId, name: groupName, brand: brand ? reference(brandId) : undefined,
       manufacturer: manufacturer ? reference(manufacturerId) : undefined, url: base,
       category: trim(data.category), description: trim(data.modelDescription), image: allImageRefs.length ? allImageRefs : undefined,
-      variesBy: calculateVariesBy(validVersions), additionalProperty: sharedProperties.length ? sharedProperties : undefined,
+      variesBy: calculateVariesBy(data, validVersions), additionalProperty: sharedProperties.length ? sharedProperties : undefined,
       hasVariant: productRefs,
     }) as SchemaEntity);
   }
@@ -297,10 +323,12 @@ export function generateSchema(data: PdpFormData): GenerationResult {
       return scopes?.has('page') || scopes?.has(version.id);
     }).map((video) => reference(makeVideoId(base, video)));
     const consumption = [
-      ['Consumo urbano - Gasolina', version.consumption.urbanGasoline], ['Consumo rodoviário - Gasolina', version.consumption.highwayGasoline],
-      ['Consumo urbano - Etanol', version.consumption.urbanEthanol], ['Consumo rodoviário - Etanol', version.consumption.highwayEthanol],
-    ].map(([name, value]) => {
-      const quantified = quantitative(value!, { unitText: 'km/L' });
+      { name: 'Consumo urbano - Gasolina', value: version.consumption.urbanGasoline },
+      { name: 'Consumo rodoviário - Gasolina', value: version.consumption.highwayGasoline },
+      { name: 'Consumo urbano - Etanol', value: version.consumption.urbanEthanol },
+      { name: 'Consumo rodoviário - Etanol', value: version.consumption.highwayEthanol },
+    ].map(({ name, value }) => {
+      const quantified = numericMeasure(value, { unitText: 'km/L' });
       return quantified ? { ...quantified, name } : undefined;
     }).filter(Boolean);
     const engine = compact({
@@ -319,6 +347,7 @@ export function generateSchema(data: PdpFormData): GenerationResult {
     const pageOfferRefs = groupId ? [] : offerRefsByScope.get('page') ?? [];
     const specificOfferRefs = offerRefsByScope.get(version.id) ?? [];
     const offers = [...pageOfferRefs, ...specificOfferRefs];
+    const sharedVehicle = data.sharedVehicleProperties;
     const node = compact({
       '@type': ['Product', 'Vehicle'], '@id': id, name: productName, model: groupName,
       vehicleModelDate: modelYear, brand: brand ? reference(brandId) : undefined,
@@ -328,13 +357,16 @@ export function generateSchema(data: PdpFormData): GenerationResult {
       color: colors.length ? colors : undefined, vehicleInteriorColor: interiorColors.length ? interiorColors : undefined,
       bodyType: trim(version.bodyType) || trim(data.bodyType), vehicleConfiguration: trim(version.configuration) || trim(version.name),
       category: trim(data.category), description: trim(data.modelDescription),
-      fuelType: trim(version.fuelType), driveWheelConfiguration: trim(version.driveWheelConfiguration),
-      vehicleTransmission: trim(version.transmission), numberOfDoors: parseLocalizedNumber(version.numberOfDoors),
-      seatingCapacity: parseLocalizedNumber(version.seatingCapacity), numberOfAirbags: parseLocalizedNumber(version.numberOfAirbags),
+      fuelType: trim(version.fuelType) || trim(sharedVehicle.fuelType),
+      driveWheelConfiguration: trim(version.driveWheelConfiguration) || trim(sharedVehicle.driveWheelConfiguration),
+      vehicleTransmission: trim(version.transmission) || trim(sharedVehicle.vehicleTransmission),
+      numberOfDoors: parseLocalizedNumber(trim(version.numberOfDoors) || trim(sharedVehicle.numberOfDoors)),
+      seatingCapacity: parseLocalizedNumber(trim(version.seatingCapacity) || trim(sharedVehicle.seatingCapacity)),
+      numberOfAirbags: parseLocalizedNumber(trim(version.numberOfAirbags) || trim(sharedVehicle.numberOfAirbags)),
       cargoVolume: measurement(data, version, 'cargoVolume', { unitCode: 'LTR' }),
       fuelCapacity: measurement(data, version, 'fuelCapacity', { unitCode: 'LTR' }),
       fuelConsumption: consumption.length ? consumption : undefined,
-      emissionsCO2: parseLocalizedNumber(version.emissionsCO2),
+      emissionsCO2: emissionsValue(version.emissionsCO2),
       length: measurement(data, version, 'length', { unitCode: 'MMT' }),
       width: measurement(data, version, 'width', { unitCode: 'MMT' }),
       height: measurement(data, version, 'height', { unitCode: 'MMT' }),
